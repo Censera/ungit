@@ -7,32 +7,32 @@ use owo_colors::OwoColorize;
 
 /// Logs an intermediate progression milestone message.
 pub fn step(msg: impl AsRef<str>) {
-    println!("{} {}", "i.".blue().bold(), msg.as_ref());
+    println!("  {} {}", "i.".blue().bold(), msg.as_ref());
 }
 
 /// Logs a terminal successful completion event message.
 pub fn success(msg: impl AsRef<str>) {
-    println!("{} {}", "k.".green().bold(), msg.as_ref());
+    println!("  {} {}", "k.".green().bold(), msg.as_ref());
 }
 
 /// Logs a non-fatal anomaly message to inform the client process.
 pub fn warning(msg: impl AsRef<str>) {
-    println!("{} {}", "w.".yellow().bold(), msg.as_ref());
+    println!("  {} {}", "w.".yellow().bold(), msg.as_ref());
 }
 
 /// Logs a fatal termination event context message to standard error.
 pub fn error(msg: impl AsRef<str>) {
-    eprintln!("{} {}", "x.".red().bold(), msg.as_ref());
+    eprintln!("  {} {}", "x.".red().bold(), msg.as_ref());
 }
 
 /// Logs contextual secondary information without an accompanying symbol prefix.
 pub fn info(msg: impl AsRef<str>) {
-    println!("  {}", msg.as_ref());
+    println!("     {}", msg.as_ref());
 }
 
 /// Logs minor structural trace diagnostic items or remediation suggestions.
 pub fn detail(msg: impl AsRef<str>) {
-    println!("    {}", msg.as_ref().dimmed());
+    println!("          {}", msg.as_ref().dimmed());
 }
 
 /// Serializes and prints structural system states directly to standard output.
