@@ -3,7 +3,7 @@ name = "ungit"
 version = "0.1.0"
 edition = "2024"
 description = "A safety layer over Git for everyday workflows."
-license = "MIT"
+license = "Apache-2.0"
 
 [[bin]]
 name = "ungit"
