@@ -27,12 +27,12 @@ pub fn error(msg: impl AsRef<str>) {
 
 /// Logs contextual secondary information without an accompanying symbol prefix.
 pub fn info(msg: impl AsRef<str>) {
-    println!("     {}", msg.as_ref());
+    println!("      {}", msg.as_ref());
 }
 
 /// Logs minor structural trace diagnostic items or remediation suggestions.
 pub fn detail(msg: impl AsRef<str>) {
-    println!("         {}", msg.as_ref().dimmed());
+    println!("        {}", msg.as_ref().dimmed());
 }
 
 /// Serializes and prints structural system states directly to standard output.

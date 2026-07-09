@@ -13,6 +13,7 @@ use cli::{Cli, Commands};
 use git::{Repo, SystemGit};
 use std::io::Write;
 use std::process::ExitCode;
+use owo_colors::OwoColorize;
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
@@ -66,7 +67,7 @@ fn run_undo(repo: &Repo, args: &cli::UndoArgs) -> error::Result<()> {
 
 /// Captures user input on standard input to determine execution authorization.
 fn prompt_confirm(message: &str) -> bool {
-    print!("{message} [y/N] ");
+    print!("  {message} {} ", "[y/N]".yellow().bold());
     let _ = std::io::stdout().flush();
     let mut input = String::new();
     if std::io::stdin().read_line(&mut input).is_err() {

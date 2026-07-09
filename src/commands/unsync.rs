@@ -27,7 +27,7 @@ pub fn run(repo: &Repo, confirm: impl Fn(&str) -> bool) -> Result<()> {
     }
 
     let prompt = format!(
-        "Reset '{}' to {}? This discards the rebase from the last sync.",
+        "Reset '{}' to {}? This discards the rebase from the last sync",
         entry.branch, entry.pre_image_sha
     );
     if !confirm(&prompt) {
@@ -39,10 +39,10 @@ pub fn run(repo: &Repo, confirm: impl Fn(&str) -> bool) -> Result<()> {
     journal::pop_last(&git_dir)?;
 
     output::success(format!(
-        "'{}' restored to its pre-sync state.",
+        "'{}' restored to its pre-sync state",
         entry.branch
     ));
-    output::info("The remote branch was already updated by that sync's push;");
-    output::info("you may need `git push --force-with-lease` to reconcile it.");
+    output::info("The remote branch was already updated by that sync's push");
+    output::info("you may need `git push --force-with-lease` to reconcile it");
     Ok(())
 }

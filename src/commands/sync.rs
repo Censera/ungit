@@ -39,12 +39,13 @@ pub fn run(repo: &Repo, remote_name: &str) -> Result<()> {
                     output::detail(format!("conflict: {path}"));
                 }
                 output::info("Resolve the conflicts above, then run:");
-                output::detail("git add <file>   (for each resolved file)");
+                output::detail("ungit save <msg> (then: ungit sync after)");
+                output::detail("git add <file>   (or: for each resolved file)");
                 output::detail("ungit sync       (or: git rebase --continue)");
                 output::info("To abandon the rebase instead:");
                 output::detail("git rebase --abort");
                 return Err(UngitError::Refused(
-                    "rebase stopped; resolve conflicts before syncing again".to_string(),
+                    "rebase stopped (resolve conflicts before syncing again)".to_string(),
                 ));
             }
 
