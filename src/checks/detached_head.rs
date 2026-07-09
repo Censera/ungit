@@ -1,7 +1,7 @@
 use crate::checks::CheckResult;
 use crate::error::Result;
-use crate::git::Repo;
 use crate::git::status;
+use crate::git::Repo;
 
 /// Warns if HEAD is not attached to a branch. Detached HEAD is not an
 /// error by itself (checking out a tag/commit is normal), but it's worth

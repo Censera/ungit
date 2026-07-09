@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::git::status::OperationState;
-use crate::git::{Repo, remote, status};
+use crate::git::{remote, status, Repo};
 use crate::output;
 use serde::Serialize;
 
@@ -36,7 +36,7 @@ pub fn summarize(repo: &Repo) -> Result<StatusSummary> {
         Default::default()
     };
     let dirty_files = status::porcelain(repo)?.len();
-    let operation = operation_label(status::operation_state(repo));
+    let operation = operation_label(status::operation_state(repo)?);
 
     Ok(StatusSummary {
         branch,
@@ -53,24 +53,23 @@ pub fn run(repo: &Repo, json: bool) -> Result<()> {
     let summary = summarize(repo)?;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&summary).unwrap());
-        return Ok(());
+        return output::json(&summary);
     }
 
     match &summary.branch {
-        Some(b) => output::info(format!("      branch:  {b}")),
-        None => output::info("      branch:  (detached HEAD)"),
+        Some(b) => output::info(format!("branch: {b}")),
+        None => output::info("branch: (detached HEAD)"),
     }
     match &summary.upstream {
-        Some(u) => output::info(format!("    upstream:  {u}")),
-        None => output::info("    upstream:  (none)"),
+        Some(u) => output::info(format!("upstream: {u}")),
+        None => output::info("upstream: (none)"),
     }
     output::info(format!(
-        "ahead/behind:  {} / {}",
+        "ahead/behind: {} / {}",
         summary.ahead, summary.behind
     ));
-    output::info(format!(" dirty files:  {} files", summary.dirty_files));
-    output::info(format!("   operation:  {}", summary.operation));
+    output::info(format!("dirty files: {}", summary.dirty_files));
+    output::info(format!("operation: {}", summary.operation));
 
     Ok(())
 }

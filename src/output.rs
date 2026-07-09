@@ -1,3 +1,7 @@
+//! Every command prints through here. Nothing else in the crate should call
+//! `println!`/`eprintln!` directly. Changing colors, symbols, or the
+//! `--json` behavior happens in exactly one place.
+
 use owo_colors::OwoColorize;
 
 /// An in-progress action. Printed to stdout, no trailing newline semantics
@@ -18,7 +22,7 @@ pub fn warning(msg: impl AsRef<str>) {
 
 /// A fatal problem. Printed to stderr.
 pub fn error(msg: impl AsRef<str>) {
-    eprintln!("{} {}", "[e]".red().bold(), msg.as_ref());
+    eprintln!("{} {}", "[x]".red().bold(), msg.as_ref());
 }
 
 /// A neutral informational line, no symbol, slightly dimmed.
@@ -28,5 +32,15 @@ pub fn info(msg: impl AsRef<str>) {
 
 /// Indented detail line under a step/success/warning, e.g. "next steps".
 pub fn detail(msg: impl AsRef<str>) {
-    println!("    {}", msg.as_ref());
+    println!("    {}", msg.as_ref().dimmed());
+}
+
+/// Prints `value` as pretty JSON to stdout. The only place that formats
+/// `--json` output, so the error path is handled once instead of an
+/// `unwrap()` at each call site.
+pub fn json<T: serde::Serialize>(value: &T) -> crate::error::Result<()> {
+    let rendered =
+        serde_json::to_string_pretty(value).map_err(crate::error::UngitError::JsonOutput)?;
+    println!("{rendered}");
+    Ok(())
 }

@@ -1,12 +1,12 @@
 use crate::checks::CheckResult;
 use crate::error::Result;
-use crate::git::{Repo, remote, status};
+use crate::git::{remote, status, Repo};
 
 /// Warns if local and upstream have diverged (both ahead and behind),
 /// since that means a rebase or merge will be needed, not a fastforward.
 pub fn check(repo: &Repo) -> Result<CheckResult> {
     if remote::upstream_ref(repo)?.is_none() {
-        // upstream::check already reports this avoid doublereporting.
+        // upstream::check already reports this; avoid double reporting.
         return Ok(CheckResult::Ok);
     }
 

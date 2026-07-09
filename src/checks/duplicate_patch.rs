@@ -1,15 +1,15 @@
 use crate::checks::CheckResult;
 use crate::error::Result;
-use crate::git::{Repo, commit};
+use crate::git::{commit, Repo};
 use std::collections::HashMap;
 
 /// How many recent commits to scan for duplicate patches. Kept small: this
-/// is a cheap sanity check, not a full history audit.
+/// is a cheap sanity check.
 const SCAN_DEPTH: u32 = 50;
 
 /// Warns if two commits in recent history introduce the same patch (same
-/// `git patch-id`), which usually means a cherrypick or rebase went
-/// sideways and duplicated a change under a different commit hash.
+/// `git patch-id`), which usually means a cherry pick or rebase went
+/// sideways and duplicated a change under a different commit hash
 pub fn check(repo: &Repo) -> Result<CheckResult> {
     let patches = commit::recent_patch_ids(repo, SCAN_DEPTH)?;
 

@@ -1,5 +1,5 @@
 use crate::error::{Result, UngitError};
-use crate::git::{Repo, commit};
+use crate::git::{commit, Repo};
 use crate::output;
 
 /// `ungit undo [--hard]`
@@ -29,9 +29,7 @@ pub fn run(repo: &Repo, hard: bool) -> Result<()> {
 
     output::success(format!("Undone: {undone_subject}"));
     if !hard {
-        output::info(
-            "Your changes are staged. Adjust and `ungit save` again, or `git reset` to unstage.",
-        );
+        output::info("Your changes are staged. Adjust and `ungit save` again, or `git reset` to unstage.");
     }
     Ok(())
 }

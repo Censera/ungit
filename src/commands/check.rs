@@ -41,21 +41,21 @@ pub fn run(repo: &Repo, json: bool) -> Result<()> {
                 },
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&rendered).unwrap());
+        output::json(&rendered)?;
     } else {
         for finding in &findings {
             match &finding.result {
-                CheckResult::Ok => output::success(format!("{}: OK", finding.name)),
-                CheckResult::Warning(msg) => output::warning(format!("{}: {}", finding.name, msg)),
+                CheckResult::Ok => output::success(format!("{}: ok", finding.name)),
+                CheckResult::Warning(msg) => {
+                    output::warning(format!("{}: {}", finding.name, msg))
+                }
                 CheckResult::Error(msg) => output::error(format!("{}: {}", finding.name, msg)),
             }
         }
     }
 
     if has_error {
-        Err(crate::error::UngitError::Precondition(
-            "the specific check failure message".to_string(),
-        ))
+        Err(crate::error::UngitError::ChecksFailed)
     } else {
         Ok(())
     }

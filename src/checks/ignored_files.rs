@@ -3,14 +3,14 @@ use crate::error::Result;
 use crate::git::Repo;
 
 /// Warns if any file that is normally gitignored is nonetheless tracked
-/// (a common source of "why is this huge binary in my repo" surprises),
-/// or if untracked-but-ignored files exist that look like they were
+/// (a common source of "why is this huge binary in my repo"),
+/// or if untracked but ignored files exist that look like they were
 /// accidentally staged before. This check only reports; `save` is the one
-/// that refuses to commit over an ignoredfile surprise.
+/// that refuses to commit over an ignored file.
 pub fn check(repo: &Repo) -> Result<CheckResult> {
     // `git ls-files -i -c --exclude-standard` lists tracked files that
-    // also match an ignore rulen i.e. someone ran `git add -f` on
-    // something .gitignore says shouldn't be tracked.
+    // also match an ignore rule, for example: someone ran `git add -f`
+    // on something .gitignore says shouldn't be tracked.
     let output = repo.require(&["ls-files", "-i", "-c", "--exclude-standard"])?;
     let offenders: Vec<&str> = output.stdout.lines().collect();
 

@@ -27,9 +27,11 @@ pub trait GitExecutor {
     fn run(&self, cwd: &std::path::Path, args: &[&str]) -> Result<GitOutput>;
 
     /// Like `run`, but writes `stdin` to the child's standard input first.
+    /// Used for plumbing commands that consume a stream, e.g. `patch-id`.
     fn run_piped(&self, cwd: &std::path::Path, args: &[&str], stdin: &str) -> Result<GitOutput>;
 }
 
+/// The real executor: shells out to the `git` binary via `std::process::Command`.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SystemGit;
 
@@ -39,7 +41,7 @@ impl GitExecutor for SystemGit {
             .args(args)
             .current_dir(cwd)
             .output()
-            .map_err(UngitError::Io)?;
+            .map_err(UngitError::GitSpawn)?;
 
         Ok(GitOutput {
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -59,16 +61,22 @@ impl GitExecutor for SystemGit {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(UngitError::Io)?;
+            .map_err(UngitError::GitSpawn)?;
 
-        child
+        // git waits for EOF on stdin before producing output. Closing the
+        // write half explicitly, before wait_with_output, is what signals
+        // that EOF without it this deadlocks on any subcommand that
+        // reads its full input before replying (patch-id, hash-object).
+        let mut stdin_pipe = child
             .stdin
             .take()
-            .expect("stdin was piped")
+            .ok_or(UngitError::GitStdinUnavailable)?;
+        stdin_pipe
             .write_all(stdin.as_bytes())
-            .map_err(UngitError::Io)?;
+            .map_err(UngitError::GitSpawn)?;
+        drop(stdin_pipe);
 
-        let output = child.wait_with_output().map_err(UngitError::Io)?;
+        let output = child.wait_with_output().map_err(UngitError::GitSpawn)?;
 
         Ok(GitOutput {
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -78,6 +86,8 @@ impl GitExecutor for SystemGit {
     }
 }
 
+/// Convenience: run a git command and turn a non-zero exit into
+/// `UngitError::GitCommand`, carrying stderr.
 pub fn require_success(
     executor: &dyn GitExecutor,
     cwd: &std::path::Path,
@@ -100,6 +110,10 @@ pub mod test_support {
     use std::collections::VecDeque;
     use std::path::PathBuf;
 
+    /// A scripted `GitExecutor` for unit tests. Enqueue expected outputs in
+    /// call order; each `run()` pops the front of the queue. Panics if more
+    /// calls happen than were scripted, which is deliberate: it means a test
+    /// under-specified its git interaction surface.
     #[derive(Default)]
     pub struct FakeGit {
         responses: RefCell<VecDeque<GitOutput>>,
@@ -136,9 +150,10 @@ pub mod test_support {
                 cwd.to_path_buf(),
                 args.iter().map(|s| s.to_string()).collect(),
             ));
-            self.responses.borrow_mut().pop_front().ok_or_else(|| {
-                UngitError::Precondition("FakeGit: no more scripted responses".to_string())
-            })
+            self.responses
+                .borrow_mut()
+                .pop_front()
+                .ok_or(UngitError::FakeGitExhausted)
         }
 
         fn run_piped(

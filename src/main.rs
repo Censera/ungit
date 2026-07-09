@@ -3,6 +3,7 @@ mod cli;
 mod commands;
 mod error;
 mod git;
+mod journal;
 mod output;
 mod util;
 
@@ -36,6 +37,7 @@ fn main() -> ExitCode {
         Commands::Save(args) => commands::save::run(&repo, &args.message, args.force),
         Commands::Sync(args) => commands::sync::run(&repo, &args.remote),
         Commands::Undo(args) => run_undo(&repo, args),
+        Commands::Unsync => commands::unsync::run(&repo, prompt_confirm),
         Commands::Start(args) => commands::start::run(&repo, &args.name, args.from.as_deref()),
         Commands::Status => commands::status::run(&repo, cli.json),
         Commands::Check => commands::check::run(&repo, cli.json),
@@ -51,12 +53,11 @@ fn main() -> ExitCode {
     }
 }
 
-// undo --hard is destructive, so it always confirms interactively
-// regardless of any other flag, there is no --yes escape hatch for it
-// by design; the user types the command again if they meant it.
+/// `undo --hard` is destructive, so it always confirms interactively
+/// regardless of any other flag, there is no `--yes` escape hatch for it
+/// by design; the user types the command again if they meant it.
 fn run_undo(repo: &Repo, args: &cli::UndoArgs) -> error::Result<()> {
-    // Note the added `?` at the end of prompt_confirm to propagate I/O errors
-    if args.hard && !prompt_confirm("Discard the last commit's changes permanently?")? {
+    if args.hard && !prompt_confirm("Discard the last commit's changes permanently?") {
         return Err(error::UngitError::Refused(
             "undo --hard cancelled".to_string(),
         ));
@@ -64,10 +65,16 @@ fn run_undo(repo: &Repo, args: &cli::UndoArgs) -> error::Result<()> {
     commands::undo::run(repo, args.hard)
 }
 
-fn prompt_confirm(message: &str) -> error::Result<bool> {
+fn prompt_confirm(message: &str) -> bool {
     print!("{message} [y/N] ");
-    std::io::stdout().flush()?;
+    // A failed flush only risks the prompt text appearing late relative
+    // to the terminal waiting for input; it does not affect the
+    // correctness of the confirmation itself, and there is nothing
+    // actionable to do about it here. Not treated as fatal.
+    let _ = std::io::stdout().flush();
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-    Ok(matches!(input.trim().to_lowercase().as_str(), "y" | "yes"))
+    if std::io::stdin().read_line(&mut input).is_err() {
+        return false;
+    }
+    matches!(input.trim().to_lowercase().as_str(), "y" | "yes")
 }

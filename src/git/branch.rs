@@ -8,30 +8,18 @@ pub fn create_and_switch(repo: &Repo, name: &str, start_point: &str) -> Result<(
     Ok(())
 }
 
-/// Switch to an existing branch.
-pub fn switch(repo: &Repo, name: &str) -> Result<()> {
-    repo.require(&["switch", name])?;
-    Ok(())
-}
-
-/// True if `name` exists as a local branch.
-pub fn exists(repo: &Repo, name: &str) -> Result<bool> {
-    let output = repo.run(&[
-        "show-ref",
-        "--verify",
-        "--quiet",
-        &format!("refs/heads/{name}"),
-    ])?;
-    Ok(output.success)
-}
-
 /// The repository's configured default branch (`main`, `master`, etc.).
 ///
-/// Tries the local `refs/remotes/origin/HEAD` symbolic ref first (set by
-/// `git clone`, or `git remote set-head origin -a`). That ref is *not*
-/// set by a plain `git remote add` + `push -u`, so as a fallback this
-/// asks the remote directly via `ls-remote --symref`, which works
-/// regardless of how the remote was configured locally.
+/// Tries three things in order, each covering a gap in the previous one:
+/// 1. The local `refs/remotes/origin/HEAD` symbolic ref, set by `git
+///    clone` or `git remote set-head origin -a`.
+/// 2. `ls-remote --symref origin HEAD`, which asks the remote directly
+///    and doesn't depend on local configuration.
+/// 3. Checking whether `main` or `master` actually exists as a branch on
+///    `origin`. This covers bare repositories whose own HEAD symref was
+///    never repointed (e.g. created with an older git default and never
+///    explicitly set), which makes (2) return a branch name that doesn't
+///    exist anywhere.
 pub fn default_branch(repo: &Repo) -> Result<Option<String>> {
     let local = repo.run(&["symbolic-ref", "--short", "refs/remotes/origin/HEAD"])?;
     if local.success {
@@ -41,20 +29,42 @@ pub fn default_branch(repo: &Repo) -> Result<Option<String>> {
         }
     }
 
-    // Fallback: ask the remote which ref its own HEAD points to.
-    let remote_head = repo.run(&["ls-remote", "--symref", "origin", "HEAD"])?;
-    if !remote_head.success {
+    if let Some(name) = remote_symref_head(repo)?
+        && remote_branch_exists(repo, &name)? {
+            return Ok(Some(name));
+    }
+
+    for candidate in ["main", "master"] {
+        if remote_branch_exists(repo, candidate)? {
+            return Ok(Some(candidate.to_string()));
+        }
+    }
+
+    Ok(None)
+}
+
+/// Asks the remote which ref its own HEAD points to, without checking
+/// whether that ref actually exists as a branch.
+fn remote_symref_head(repo: &Repo) -> Result<Option<String>> {
+    let output = repo.run(&["ls-remote", "--symref", "origin", "HEAD"])?;
+    if !output.success {
         return Ok(None);
     }
     // Output looks like: "ref: refs/heads/main\tHEAD\n<hash>\tHEAD"
-    for line in remote_head.stdout.lines() {
+    for line in output.stdout.lines() {
         if let Some(rest) = line.strip_prefix("ref: refs/heads/")
-            && let Some((name, _)) = rest.split_once('\t')
-        {
-            return Ok(Some(name.to_string()));
+            && let Some((name, _)) = rest.split_once('\t') {
+                return Ok(Some(name.to_string()));
         }
     }
     Ok(None)
+}
+
+/// True if `name` exists as a branch on `origin`, checked directly
+/// against the remote (not the local `refs/remotes/origin/*` cache).
+fn remote_branch_exists(repo: &Repo, name: &str) -> Result<bool> {
+    let output = repo.run(&["ls-remote", "--exit-code", "--heads", "origin", name])?;
+    Ok(output.success && !output.stdout_trimmed().is_empty())
 }
 
 #[cfg(test)]

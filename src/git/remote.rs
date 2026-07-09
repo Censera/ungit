@@ -1,7 +1,6 @@
 use crate::error::Result;
 use crate::git::repo::Repo;
 
-/// `git fetch <remote>`. Defaults to `origin` when `None`.
 pub fn fetch(repo: &Repo, remote: Option<&str>) -> Result<()> {
     let remote = remote.unwrap_or("origin");
     repo.require(&["fetch", remote])?;
@@ -32,12 +31,6 @@ pub fn upstream_ref(repo: &Repo) -> Result<Option<String>> {
         return Ok(None);
     }
     Ok(Some(output.stdout_trimmed().to_string()))
-}
-
-/// True if `remote` is configured at all.
-pub fn remote_exists(repo: &Repo, remote: &str) -> Result<bool> {
-    let output = repo.require(&["remote"])?;
-    Ok(output.stdout.lines().any(|line| line == remote))
 }
 
 #[cfg(test)]

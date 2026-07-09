@@ -20,17 +20,12 @@ pub enum CheckResult {
     Ok,
     /// Worth the user's attention, but not blocking.
     Warning(String),
-    /// A real problem; `check` should exit non-zero and `repair` should
-    /// offer to fix it.
+    /// A real problem; `check` should exit nonzero and `repair` should
+    /// offer to fix it
     Error(String),
 }
 
 impl CheckResult {
-    #[allow(dead_code)]
-    pub fn is_ok(&self) -> bool {
-        matches!(self, CheckResult::Ok)
-    }
-
     pub fn is_error(&self) -> bool {
         matches!(self, CheckResult::Error(_))
     }

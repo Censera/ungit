@@ -1,16 +1,12 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
-#[command(
-    name = "ungit",
-    version,
-    about = "A safety layer over Git for everyday workflows."
-)]
+#[command(name = "ungit", version, about = "A safety layer over Git for everyday workflows.")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
 
-    /// Emit machine-readable JSON instead of formatted text, where supported.
+    /// Emit machine readable JSON instead of formatted text, where supported.
     #[arg(long, global = true)]
     pub json: bool,
 }
@@ -25,6 +21,9 @@ pub enum Commands {
 
     /// Undo the last commit, keeping the working tree intact.
     Undo(UndoArgs),
+
+    /// Revert the branch to its state before the last `sync`'s rebase.
+    Unsync,
 
     /// Fetch, update main, and create a new branch from it.
     Start(StartArgs),

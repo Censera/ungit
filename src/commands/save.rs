@@ -1,5 +1,5 @@
 use crate::error::{Result, UngitError};
-use crate::git::{Repo, commit, status};
+use crate::git::{commit, status, Repo};
 use crate::output;
 use crate::util::{fs, paths};
 
@@ -19,7 +19,7 @@ pub fn run(repo: &Repo, message: &str, force: bool) -> Result<()> {
         for entry in &entries {
             if paths::looks_like_secret(&entry.path) {
                 return Err(UngitError::Refused(format!(
-                    "{} looks like it may contain a secret; use --force to commit anyway",
+                    "{} looks like it may contain a secret, use --force to commit anyway",
                     entry.path
                 )));
             }
@@ -27,7 +27,7 @@ pub fn run(repo: &Repo, message: &str, force: bool) -> Result<()> {
             let full_path = repo.root.join(&entry.path);
             if fs::is_large_file(&full_path) {
                 return Err(UngitError::Refused(format!(
-                    "{} is unusually large; use --force to commit anyway",
+                    "{} is unusually large, use --force to commit anyway",
                     entry.path
                 )));
             }
