@@ -1,7 +1,5 @@
-//! Repository health checks. Each check inspects one thing and returns a
-//! `CheckResult`, it never mutates the repository and never prints.
-//! `commands::check` runs the set and renders results, `commands::repair`
-//! runs (a subset of) the same checks to decide what needs fixing.
+//! Repository health checks.
+//! Checks inspect state without modifying the repository or writing to stdout.
 
 pub mod detached_head;
 pub mod divergence;
@@ -14,14 +12,14 @@ use crate::error::Result;
 use crate::git::Repo;
 
 /// Outcome of a single check.
+#[expect(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CheckResult {
     /// Nothing wrong.
     Ok,
-    /// Worth the user's attention, but not blocking.
+    /// Non-blocking issue requiring user attention.
     Warning(String),
-    /// A real problem; `check` should exit nonzero and `repair` should
-    /// offer to fix it
+    /// Critical error. Blocks execution in check mode; target for repair mode.
     Error(String),
 }
 
@@ -31,39 +29,67 @@ impl CheckResult {
     }
 }
 
-/// A named check result, as produced by running the full suite.
+/// A named check result from the suite.
+///
+/// `name` acts as the configuration token for suppressing findings via CLI arguments.
 pub struct Finding {
     pub name: &'static str,
     pub result: CheckResult,
+    /// An executable command that resolves the finding.
+    /// Evaluates to `None` if the resolution is ambiguous or requires user judgment.
+    pub fix: Option<String>,
 }
 
-/// Run every check against `repo` and return their findings in a fixed,
-/// stable order (so `--json` output and terminal output always agree).
+/// Run all suite checks against the repository in a stable order.
 pub fn run_all(repo: &Repo) -> Result<Vec<Finding>> {
+    let (result, fix) = detached_head::check(repo)?;
+    let detached_head = Finding {
+        name: "detached-head",
+        result,
+        fix,
+    };
+
+    let (result, fix) = upstream::check(repo)?;
+    let upstream = Finding {
+        name: "upstream",
+        result,
+        fix,
+    };
+
+    let (result, fix) = divergence::check(repo)?;
+    let divergence = Finding {
+        name: "divergence",
+        result,
+        fix,
+    };
+
+    let (result, fix) = merge_state::check(repo)?;
+    let merge_state = Finding {
+        name: "merge-state",
+        result,
+        fix,
+    };
+
+    let (result, fix) = ignored_files::check(repo)?;
+    let ignored_files = Finding {
+        name: "ignored-files",
+        result,
+        fix,
+    };
+
+    let (result, fix) = duplicate_patch::check(repo)?;
+    let duplicate_patch = Finding {
+        name: "duplicate-patch",
+        result,
+        fix,
+    };
+
     Ok(vec![
-        Finding {
-            name: "detached-head",
-            result: detached_head::check(repo)?,
-        },
-        Finding {
-            name: "upstream",
-            result: upstream::check(repo)?,
-        },
-        Finding {
-            name: "divergence",
-            result: divergence::check(repo)?,
-        },
-        Finding {
-            name: "merge-state",
-            result: merge_state::check(repo)?,
-        },
-        Finding {
-            name: "ignored-files",
-            result: ignored_files::check(repo)?,
-        },
-        Finding {
-            name: "duplicate-patch",
-            result: duplicate_patch::check(repo)?,
-        },
+        detached_head,
+        upstream,
+        divergence,
+        merge_state,
+        ignored_files,
+        duplicate_patch,
     ])
 }

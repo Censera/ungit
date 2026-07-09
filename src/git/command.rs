@@ -17,21 +17,17 @@ impl GitOutput {
 
 /// Abstraction over "something that can run git commands".
 ///
-/// `git/repo.rs`, `git/status.rs`, etc. take `&dyn GitExecutor` (or are
-/// generic over `impl GitExecutor`) instead of calling `std::process::Command`
-/// directly. This is the seam that lets `commands/` and `checks/` be tested
-/// against a scripted fake instead of a real repository.
+/// Implementations isolate standard system command execution from business logic.
+/// This enables unit testing via mock/scripted behaviors without target repository overhead.
 pub trait GitExecutor {
-    /// Run `git <args>` in `cwd` and return its output regardless of exit
-    /// code. Only I/O failures (git not found, etc.) are `Err`.
+    /// Executes a git command sequence with the given arguments in a directory context.
     fn run(&self, cwd: &std::path::Path, args: &[&str]) -> Result<GitOutput>;
 
-    /// Like `run`, but writes `stdin` to the child's standard input first.
-    /// Used for plumbing commands that consume a stream, e.g. `patch-id`.
+    /// Executes a git command sequence while passing data directly to the stdin pipe.
     fn run_piped(&self, cwd: &std::path::Path, args: &[&str], stdin: &str) -> Result<GitOutput>;
 }
 
-/// The real executor: shells out to the `git` binary via `std::process::Command`.
+/// Standard system executor that shells out to the system git installation.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SystemGit;
 
@@ -63,14 +59,8 @@ impl GitExecutor for SystemGit {
             .spawn()
             .map_err(UngitError::GitSpawn)?;
 
-        // git waits for EOF on stdin before producing output. Closing the
-        // write half explicitly, before wait_with_output, is what signals
-        // that EOF without it this deadlocks on any subcommand that
-        // reads its full input before replying (patch-id, hash-object).
-        let mut stdin_pipe = child
-            .stdin
-            .take()
-            .ok_or(UngitError::GitStdinUnavailable)?;
+        // Close the write half of the stdin pipe explicitly to prevent deadlocks.
+        let mut stdin_pipe = child.stdin.take().ok_or(UngitError::GitStdinUnavailable)?;
         stdin_pipe
             .write_all(stdin.as_bytes())
             .map_err(UngitError::GitSpawn)?;
@@ -86,8 +76,7 @@ impl GitExecutor for SystemGit {
     }
 }
 
-/// Convenience: run a git command and turn a non-zero exit into
-/// `UngitError::GitCommand`, carrying stderr.
+/// Helper to execute a git command sequence and guarantee non-zero exits map to errors.
 pub fn require_success(
     executor: &dyn GitExecutor,
     cwd: &std::path::Path,
@@ -110,10 +99,7 @@ pub mod test_support {
     use std::collections::VecDeque;
     use std::path::PathBuf;
 
-    /// A scripted `GitExecutor` for unit tests. Enqueue expected outputs in
-    /// call order; each `run()` pops the front of the queue. Panics if more
-    /// calls happen than were scripted, which is deliberate: it means a test
-    /// under-specified its git interaction surface.
+    /// Scripted executor configuration for automated unit tests.
     #[derive(Default)]
     pub struct FakeGit {
         responses: RefCell<VecDeque<GitOutput>>,

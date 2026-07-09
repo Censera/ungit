@@ -1,11 +1,8 @@
 use crate::error::{Result, UngitError};
-use crate::git::{branch, remote, status, Repo};
+use crate::git::{Repo, branch, remote, status};
 use crate::output;
 
-/// `ungit start <name> [--from <base>]`
-///
-/// Fetch, update the base branch (default: repository's default branch),
-/// and create+switch to a new branch from its latest tip.
+/// Fetches remote updates and cuts a new local branch from a base reference tip.
 pub fn run(repo: &Repo, name: &str, from: Option<&str>) -> Result<()> {
     if status::is_dirty(repo)? {
         return Err(UngitError::Precondition(

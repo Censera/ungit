@@ -1,16 +1,15 @@
 use crate::checks::CheckResult;
 use crate::error::Result;
-use crate::git::{commit, Repo};
+use crate::git::{Repo, commit};
 use std::collections::HashMap;
 
-/// How many recent commits to scan for duplicate patches. Kept small: this
-/// is a cheap sanity check.
+/// Commit count limit for duplicate patch detection.
 const SCAN_DEPTH: u32 = 50;
 
-/// Warns if two commits in recent history introduce the same patch (same
-/// `git patch-id`), which usually means a cherry pick or rebase went
-/// sideways and duplicated a change under a different commit hash
-pub fn check(repo: &Repo) -> Result<CheckResult> {
+/// Warns if recent history contains duplicate patch IDs.
+/// Duplicate IDs indicate mismatched commits with identical content changes.
+/// No automatic fix is provided due to ambiguity in manual selection requirements.
+pub fn check(repo: &Repo) -> Result<(CheckResult, Option<String>)> {
     let patches = commit::recent_patch_ids(repo, SCAN_DEPTH)?;
 
     let mut by_patch_id: HashMap<&str, Vec<&commit::CommitPatch>> = HashMap::new();
@@ -24,14 +23,17 @@ pub fn check(repo: &Repo) -> Result<CheckResult> {
     let duplicates: Vec<_> = by_patch_id.values().filter(|v| v.len() > 1).collect();
 
     if duplicates.is_empty() {
-        return Ok(CheckResult::Ok);
+        return Ok((CheckResult::Ok, None));
     }
 
     let example = &duplicates[0];
-    Ok(CheckResult::Warning(format!(
-        "duplicate patch detected: \"{}\" appears in {} commits ({} total duplicate group(s))",
-        example[0].subject,
-        example.len(),
-        duplicates.len()
-    )))
+    Ok((
+        CheckResult::Warning(format!(
+            "duplicate patch detected: \"{}\" appears in {} commits ({} total duplicate group(s))",
+            example[0].subject,
+            example.len(),
+            duplicates.len()
+        )),
+        None,
+    ))
 }

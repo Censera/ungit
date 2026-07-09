@@ -1,14 +1,14 @@
 use crate::error::Result;
 use crate::git::repo::Repo;
 
+/// Fetches tracking updates from a specified remote or defaults to origin.
 pub fn fetch(repo: &Repo, remote: Option<&str>) -> Result<()> {
     let remote = remote.unwrap_or("origin");
     repo.require(&["fetch", remote])?;
     Ok(())
 }
 
-/// `git push`. If the current branch has no upstream, use `set_upstream`
-/// to publish it (`push -u <remote> <branch>`) instead of a bare `push`.
+/// Transmits local modifications to the remote repository target.
 pub fn push(repo: &Repo, remote: &str, branch: &str, set_upstream: bool) -> Result<()> {
     if set_upstream {
         repo.require(&["push", "-u", remote, branch])?;
@@ -18,8 +18,7 @@ pub fn push(repo: &Repo, remote: &str, branch: &str, set_upstream: bool) -> Resu
     Ok(())
 }
 
-/// The full upstream ref for the current branch (`origin/main`), or `None`
-/// if unset.
+/// Resolves the upstream tracking shorthand reference name for the current branch context.
 pub fn upstream_ref(repo: &Repo) -> Result<Option<String>> {
     let output = repo.run(&[
         "rev-parse",

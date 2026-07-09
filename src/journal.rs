@@ -1,28 +1,17 @@
-//! Records ref pre-images before `sync` and `repair` move refs, so
-//! `undo-sync` can reverse them later.
+//! Persists pre-image state references prior to destructive operations.
 //!
-//! This module owns one concern: reading and writing
-//! `.git/ungit_journal`. It does not decide *when* to record an entry
-//! (that's `commands::sync` / `commands::repair`) and it does not decide
-//! *how* to revert one (that's `commands::undo_sync`). It only knows the
-//! file format and the "keep the last 5" retention rule.
+//! Handles reader/writer serialization routines for `.git/ungit_journal`
+//! while enforcing maximum log retention caps.
 
 use crate::error::{Result, UngitError};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-/// How many entries to retain. Older entries are dropped on write.
+/// Retention window cap; older log elements are purged on push.
 const MAX_ENTRIES: usize = 5;
 
-/// The operation that produced a journal entry, recorded so `undo-sync`
-/// can describe what it's reverting.
-///
-/// Currently only `sync` writes journal entries. `repair`'s rebase abort
-/// does not: `git rebase --abort` is already a full, correct reversal on
-/// its own, so there's nothing for the journal to add there. This enum
-/// has one variant instead of zero so the format is stable if a second
-/// ref-rewriting operation earns a journal entry later.
+/// High-level operational categories tracked in journal logs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Operation {
     Sync,
@@ -36,16 +25,12 @@ impl Operation {
     }
 }
 
-/// One journal entry: enough to reconstruct "what ref pointed where,
-/// before this command ran".
+/// Journal entry capturing pre-operation ref targets and metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Entry {
     pub operation: Operation,
     pub branch: String,
-    /// The full SHA that `branch`'s tip pointed to before the operation.
     pub pre_image_sha: String,
-    /// Unix timestamp, seconds. Informational only; nothing depends on
-    /// ordering by this field instead of file order.
     pub recorded_at_unix: u64,
 }
 
@@ -53,7 +38,9 @@ impl Entry {
     pub fn describe(&self) -> String {
         format!(
             "{} on '{}', prior to {}",
-            self.pre_image_sha, self.branch, self.operation.label()
+            self.pre_image_sha,
+            self.branch,
+            self.operation.label()
         )
     }
 }
@@ -69,9 +56,7 @@ fn now_unix() -> u64 {
         .unwrap_or(0)
 }
 
-/// Append `entry` to the journal, dropping the oldest entries beyond
-/// `MAX_ENTRIES`. `git_dir` is the repository's `.git` directory
-/// (`repo.root.join(".git")`).
+/// Records a new state snapshot entry and enforces maximum retention limits.
 pub fn record(git_dir: &Path, mut entry: Entry) -> Result<()> {
     entry.recorded_at_unix = now_unix();
 
@@ -85,13 +70,12 @@ pub fn record(git_dir: &Path, mut entry: Entry) -> Result<()> {
     write_all(git_dir, &entries)
 }
 
-/// The most recent entry, if any.
+/// Fetches the most recently stored journal entry.
 pub fn last(git_dir: &Path) -> Result<Option<Entry>> {
     Ok(read_all(git_dir)?.into_iter().next_back())
 }
 
-/// Remove the most recent entry (called after a successful `undo-sync`,
-/// so the same entry can't be reverted twice).
+/// Pops the top-most journal record upon state reversal completion.
 pub fn pop_last(git_dir: &Path) -> Result<()> {
     let mut entries = read_all(git_dir)?;
     entries.pop();
@@ -126,8 +110,6 @@ fn write_all(git_dir: &Path, entries: &[Entry]) -> Result<()> {
         buffer.push('\n');
     }
 
-    // Write to a temp file and rename, so a crash mid-write can't corrupt
-    // the journal or leave a half-written line for read_all to choke on.
     let tmp_path = path.with_extension("tmp");
     let mut file = std::fs::File::create(&tmp_path)
         .map_err(|e| UngitError::Journal(format!("creating {tmp_path:?}: {e}")))?;
@@ -145,10 +127,6 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    /// A scratch `.git`-like directory for one test. Removed on drop via
-    /// an explicit call at the end of each test (no Drop impl needed
-    /// leftover dirs under `std::env::temp_dir()` are harmless between
-    /// runs and this keeps the test module free of a second abstraction).
     fn scratch_dir(label: &str) -> PathBuf {
         let mut path = std::env::temp_dir();
         let unique = format!(

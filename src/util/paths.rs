@@ -14,8 +14,7 @@ const SUSPICIOUS_NAMES: &[&str] = &[
 
 const SUSPICIOUS_SUFFIXES: &[&str] = &[".pem", ".pfx", ".p12", ".key"];
 
-/// True if `path` looks like it holds a secret, based on filename alone.
-/// This is a heuristic, not a scanner: it does not read file contents.
+/// Evaluates filename paths using lexical heuristics to flag potential secret containers.
 pub fn looks_like_secret(path: &str) -> bool {
     let file_name = path.rsplit('/').next().unwrap_or(path);
 

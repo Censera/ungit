@@ -1,7 +1,11 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
-#[command(name = "ungit", version, about = "A safety layer over Git for everyday workflows.")]
+#[command(
+    name = "ungit",
+    version,
+    about = "A safety layer over Git for everyday workflows."
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -28,11 +32,11 @@ pub enum Commands {
     /// Fetch, update main, and create a new branch from it.
     Start(StartArgs),
 
-    /// Show a human-readable repository summary.
+    /// Show a human readable repository summary.
     Status,
 
     /// Detect repository problems.
-    Check,
+    Check(CheckArgs),
 
     /// Repair problems found by `check`.
     Repair(RepairArgs),
@@ -71,6 +75,18 @@ pub struct StartArgs {
     /// Base branch to start from. Defaults to the repository's default branch.
     #[arg(long)]
     pub from: Option<String>,
+}
+
+#[derive(clap::Args, Debug)]
+pub struct CheckArgs {
+    /// Silence a finding by name (e.g. `ignored-files`). Persists across
+    /// runs until `--unallow` is used for the same name.
+    #[arg(long)]
+    pub allow: Option<String>,
+
+    /// Stop silencing a previously-allowed finding.
+    #[arg(long)]
+    pub unallow: Option<String>,
 }
 
 #[derive(clap::Args, Debug)]

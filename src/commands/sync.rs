@@ -1,13 +1,10 @@
 use crate::error::{Result, UngitError};
-use crate::git::{rebase, remote, status, Repo};
+use crate::git::{Repo, rebase, remote, status};
 use crate::journal;
 use crate::output;
 
-/// `ungit sync [--remote origin]`
-///
-/// Fetch, rebase onto upstream, push. If there's no upstream yet, publish
-/// the current branch instead of rebasing against nothing. On conflicts,
-/// stop and tell the user exactly what to do never auto-resolve.
+/// Fetches remote tracking data, rebases the active branch, and pushes updates.
+/// Publishes the branch to the remote target if no upstream tracking relation is defined.
 pub fn run(repo: &Repo, remote_name: &str) -> Result<()> {
     let Some(branch) = status::current_branch(repo)? else {
         return Err(UngitError::Precondition(
@@ -26,13 +23,9 @@ pub fn run(repo: &Repo, remote_name: &str) -> Result<()> {
             return Ok(());
         }
         Some(upstream) => {
-            // Recorded before the rebase runs, so it reflects the
-            // branch's tip as it existed prior to any rewrite. Only
-            // written once the rebase is confirmed to succeed (below);
-            // a conflicted rebase leaves the branch untouched, and
-            // `git rebase --abort` is already the correct, complete
-            // reversal for that case nothing for the journal to add.
-            let pre_rebase_sha = repo.require(&["rev-parse", "HEAD"])?
+            // Track the pre-rewrite HEAD reference.
+            let pre_rebase_sha = repo
+                .require(&["rev-parse", "HEAD"])?
                 .stdout_trimmed()
                 .to_string();
 
@@ -62,7 +55,7 @@ pub fn run(repo: &Repo, remote_name: &str) -> Result<()> {
                     operation: journal::Operation::Sync,
                     branch: branch.clone(),
                     pre_image_sha: pre_rebase_sha,
-                    recorded_at_unix: 0, // overwritten by journal::record
+                    recorded_at_unix: 0,
                 },
             )?;
         }

@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::git::status::OperationState;
-use crate::git::{remote, status, Repo};
+use crate::git::{Repo, remote, status};
 use crate::output;
 use serde::Serialize;
 

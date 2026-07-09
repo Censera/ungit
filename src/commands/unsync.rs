@@ -1,23 +1,10 @@
 use crate::error::{Result, UngitError};
-use crate::git::{status, Repo};
+use crate::git::{Repo, status};
 use crate::journal;
 use crate::output;
 
-/// `ungit unsync`
-///
-/// Reverts the branch to its preimage recorded by the most recent
-/// `sync` (for example: before that sync's rebase ran). This is a separate,
-/// explicit command from `ungit undo` on purpose: `undo` has one fixed
-/// meaning (soft-reset the last commit) regardless of what else happened
-/// in the repo, and silently branching its behavior on hidden journal
-/// state would make `undo` unpredictable from the command line alone.
-/// Reverting a `sync` is a distinct, rarer operation, so it gets its own
-/// name.
-///
-/// This is a hard reset: it moves the branch tip back to the recorded
-/// SHA and discards whatever the rebase produced. It requires
-/// confirmation (via `confirm`) because of that, the same way
-/// `undo --hard` does.
+/// Reverts the active branch head to the state recorded prior to the most recent sync.
+/// Performs a hard reset to the journaled SHA.
 pub fn run(repo: &Repo, confirm: impl Fn(&str) -> bool) -> Result<()> {
     let git_dir = repo.git_dir()?;
     let Some(entry) = journal::last(&git_dir)? else {
@@ -51,7 +38,10 @@ pub fn run(repo: &Repo, confirm: impl Fn(&str) -> bool) -> Result<()> {
     repo.require(&["reset", "--hard", &entry.pre_image_sha])?;
     journal::pop_last(&git_dir)?;
 
-    output::success(format!("'{}' restored to its pre-sync state.", entry.branch));
+    output::success(format!(
+        "'{}' restored to its pre-sync state.",
+        entry.branch
+    ));
     output::info("The remote branch was already updated by that sync's push;");
     output::info("you may need `git push --force-with-lease` to reconcile it.");
     Ok(())

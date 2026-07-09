@@ -1,10 +1,7 @@
 use crate::error::Result;
 use crate::git::repo::Repo;
 
-/// A single line of `git status --porcelain=v1` output, split into its
-/// two status characters and the path. Left untyped (`char`, not an enum)
-/// deliberately: `git`'s own status codes are the vocabulary here, and
-/// interpreting them is a `checks`/`commands` concern, not this modules
+/// A parsed row from a porcelain status invocation containing raw change keys and paths.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatusEntry {
     pub index: char,
@@ -12,7 +9,7 @@ pub struct StatusEntry {
     pub path: String,
 }
 
-/// Raw porcelain status, parsed into entries. Includes untracked files.
+/// Parses the raw repository porcelain status output.
 pub fn porcelain(repo: &Repo) -> Result<Vec<StatusEntry>> {
     let output = repo.require(&["status", "--porcelain=v1", "--untracked-files=all"])?;
     Ok(output
@@ -27,21 +24,15 @@ pub fn porcelain(repo: &Repo) -> Result<Vec<StatusEntry>> {
         .collect())
 }
 
-/// True if the working tree has any staged or unstaged changes, or
-/// untracked files.
+/// Evaluates if there are any staged, unstaged, or untracked changes.
 pub fn is_dirty(repo: &Repo) -> Result<bool> {
     Ok(!porcelain(repo)?.is_empty())
 }
 
-/// The currently checked-out branch name, or `None` if HEAD is detached
-/// or the repository has no commits yet (both cases where `rev-parse`
-/// can't resolve a branch tip).
+/// Resolves the currently active branch name. Returns `None` if the context is detached.
 pub fn current_branch(repo: &Repo) -> Result<Option<String>> {
     let output = repo.run(&["rev-parse", "--abbrev-ref", "HEAD"])?;
     if !output.success {
-        // Typically "fatal: ambiguous argument 'HEAD'" on a repo with zero
-        // commits. `symbolic-ref` still resolves in that case, since the
-        // branch exists as a ref even before it has a commit.
         let symbolic = repo.run(&["symbolic-ref", "--short", "-q", "HEAD"])?;
         return Ok(if symbolic.success {
             Some(symbolic.stdout_trimmed().to_string())
@@ -57,16 +48,14 @@ pub fn current_branch(repo: &Repo) -> Result<Option<String>> {
     }
 }
 
-/// Ahead/behind counts relative to a ref, typically `<branch>@{upstream}`.
+/// Direct tracking metrics comparing divergence counts between references.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct AheadBehind {
     pub ahead: u32,
     pub behind: u32,
 }
 
-/// Compare HEAD against `other_ref` (e.g. `"@{upstream}"` or
-/// `"origin/main"`). Returns `None` if the ref does not resolve, which is
-/// the normal case for "no upstream configured".
+/// Compares the HEAD pointer context against a target tracking reference.
 pub fn ahead_behind(repo: &Repo, other_ref: &str) -> Result<Option<AheadBehind>> {
     let output = repo.run(&[
         "rev-list",
@@ -84,7 +73,7 @@ pub fn ahead_behind(repo: &Repo, other_ref: &str) -> Result<Option<AheadBehind>>
     Ok(Some(AheadBehind { ahead, behind }))
 }
 
-/// What mid-operation state, if any, the repository is in.
+/// Internal operational transaction states.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationState {
     Clean,
@@ -95,26 +84,24 @@ pub enum OperationState {
     BisectInProgress,
 }
 
-/// Detect an in-progress rebase/merge/etc. by presence of the marker files
-/// git itself uses under the repository's actual git directory (resolved
-/// via `Repo::git_dir`, not assumed to be `<root>/.git` that assumption
-/// breaks for linked worktrees and submodules, where `.git` is a file
-/// pointing elsewhere).
+/// Inspects local metadata configurations to detect state operations like merges or rebases.
 pub fn operation_state(repo: &Repo) -> Result<OperationState> {
     let git_dir = repo.git_dir()?;
-    Ok(if git_dir.join("rebase-merge").is_dir() || git_dir.join("rebase-apply").is_dir() {
-        OperationState::Rebasing
-    } else if git_dir.join("MERGE_HEAD").is_file() {
-        OperationState::Merging
-    } else if git_dir.join("CHERRY_PICK_HEAD").is_file() {
-        OperationState::CherryPicking
-    } else if git_dir.join("REVERT_HEAD").is_file() {
-        OperationState::Reverting
-    } else if git_dir.join("BISECT_LOG").is_file() {
-        OperationState::BisectInProgress
-    } else {
-        OperationState::Clean
-    })
+    Ok(
+        if git_dir.join("rebase-merge").is_dir() || git_dir.join("rebase-apply").is_dir() {
+            OperationState::Rebasing
+        } else if git_dir.join("MERGE_HEAD").is_file() {
+            OperationState::Merging
+        } else if git_dir.join("CHERRY_PICK_HEAD").is_file() {
+            OperationState::CherryPicking
+        } else if git_dir.join("REVERT_HEAD").is_file() {
+            OperationState::Reverting
+        } else if git_dir.join("BISECT_LOG").is_file() {
+            OperationState::BisectInProgress
+        } else {
+            OperationState::Clean
+        },
+    )
 }
 
 #[cfg(test)]

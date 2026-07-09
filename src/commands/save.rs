@@ -1,13 +1,10 @@
 use crate::error::{Result, UngitError};
-use crate::git::{commit, status, Repo};
+use crate::git::{Repo, commit, status};
 use crate::output;
 use crate::util::{fs, paths};
 
-/// `ungit save "message" [--force]`
-///
-/// Stages everything and commits, refusing on obvious mistakes unless
-/// `force` is set: suspected secrets, unusually large files, or files
-/// that are gitignored but tracked anyway.
+/// Stages modified files and creates a new commit.
+/// Validates changes for secrets and size thresholds unless `force` is true.
 pub fn run(repo: &Repo, message: &str, force: bool) -> Result<()> {
     let entries = status::porcelain(repo)?;
     if entries.is_empty() {

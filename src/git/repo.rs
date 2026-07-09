@@ -2,18 +2,14 @@ use crate::error::{Result, UngitError};
 use crate::git::command::GitExecutor;
 use std::path::{Path, PathBuf};
 
-/// A resolved Git repository: its working-tree root and the executor used
-/// to talk to it. Every `commands::*` function takes one of these instead
-/// of rederiving cwd/root
+/// A resolved Git repository context tracking working-tree root paths and execution bindings.
 pub struct Repo<'a> {
     pub root: PathBuf,
     pub executor: &'a dyn GitExecutor,
 }
 
 impl<'a> Repo<'a> {
-    /// Discover the repository containing `start_dir` (walks up, same as
-    /// `git rev-parse --show-toplevel`). Fails with `NotARepository` if
-    /// none is found.
+    /// Attempts to locate the top-level repository context by traversing directories upward.
     pub fn discover(executor: &'a dyn GitExecutor, start_dir: &Path) -> Result<Self> {
         let output = executor.run(start_dir, &["rev-parse", "--show-toplevel"])?;
         if !output.success {
@@ -35,11 +31,7 @@ impl<'a> Repo<'a> {
         self.executor.run_piped(&self.root, args, stdin)
     }
 
-    /// The repository's actual git directory, via `git rev-parse
-    /// --git-dir`. Not always `<root>/.git` as a directory: in a linked
-    /// worktree or submodule, `.git` is a file pointing elsewhere. Callers
-    /// that need to read/write git-internal state (journal, rebase
-    /// markers) should resolve this instead of joining `.git` by hand.
+    /// Resolves the canonical internal git storage or structural routing path directory.
     pub fn git_dir(&self) -> Result<PathBuf> {
         let output = self.require(&["rev-parse", "--git-dir"])?;
         let raw = PathBuf::from(output.stdout_trimmed());
@@ -79,7 +71,6 @@ mod tests {
 
     #[test]
     fn git_dir_joins_relative_output() {
-        // Normal repo: `rev-parse --git-dir` prints a relative path.
         let git = FakeGit::new();
         git.push_ok(".git\n");
         let repo = Repo {
@@ -94,9 +85,6 @@ mod tests {
 
     #[test]
     fn git_dir_keeps_absolute_output() {
-        // Linked worktree: `rev-parse --git-dir` prints an absolute path
-        // into the main repo's `.git/worktrees/<name>`, which must not be
-        // joined onto `root` (that would produce a nonexistent path).
         let git = FakeGit::new();
         git.push_ok("/home/user/project/.git/worktrees/feature\n");
         let repo = Repo {

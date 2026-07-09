@@ -1,3 +1,4 @@
+mod allowlist;
 mod checks;
 mod cli;
 mod commands;
@@ -40,7 +41,7 @@ fn main() -> ExitCode {
         Commands::Unsync => commands::unsync::run(&repo, prompt_confirm),
         Commands::Start(args) => commands::start::run(&repo, &args.name, args.from.as_deref()),
         Commands::Status => commands::status::run(&repo, cli.json),
-        Commands::Check => commands::check::run(&repo, cli.json),
+        Commands::Check(args) => commands::check::run(&repo, cli.json, args),
         Commands::Repair(args) => commands::repair::run(&repo, args.yes, prompt_confirm),
     };
 
@@ -53,9 +54,7 @@ fn main() -> ExitCode {
     }
 }
 
-/// `undo --hard` is destructive, so it always confirms interactively
-/// regardless of any other flag, there is no `--yes` escape hatch for it
-/// by design; the user types the command again if they meant it.
+/// Executes the undo command pipeline, forcing interactive confirmation if a destructive hard reset is requested.
 fn run_undo(repo: &Repo, args: &cli::UndoArgs) -> error::Result<()> {
     if args.hard && !prompt_confirm("Discard the last commit's changes permanently?") {
         return Err(error::UngitError::Refused(
@@ -65,12 +64,9 @@ fn run_undo(repo: &Repo, args: &cli::UndoArgs) -> error::Result<()> {
     commands::undo::run(repo, args.hard)
 }
 
+/// Captures user input on standard input to determine execution authorization.
 fn prompt_confirm(message: &str) -> bool {
     print!("{message} [y/N] ");
-    // A failed flush only risks the prompt text appearing late relative
-    // to the terminal waiting for input; it does not affect the
-    // correctness of the confirmation itself, and there is nothing
-    // actionable to do about it here. Not treated as fatal.
     let _ = std::io::stdout().flush();
     let mut input = String::new();
     if std::io::stdin().read_line(&mut input).is_err() {
