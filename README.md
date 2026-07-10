@@ -57,16 +57,16 @@ for confirmation before rewriting the branch.
 ### Examples
 
 ```ts
-ungit save "fix off-by-one in parser"
+ungit save "update readme"
 ungit sync --remote origin
 ungit undo --hard
-ungit start feature/lexer-error-recovery --from main
+ungit start feature/cleaning --from main
 ungit check --allow ignored-files
 ungit repair --yes
 ```
 
-`repair` only auto-fixes an in-progress rebase (`merge-state`). Everything
-else it re-reports with the same fix hint `check` already gave you, you run the fix yourself.
+`repair` only auto fixes an in progress rebase (`merge-state`). Everything
+else it rereports with the same fix hint `check` already gave you, you run the fix yourself.
 
 ## Contributing
  
