@@ -16,7 +16,13 @@ It does not replace it.
 Requires the `git` binary on `PATH`. `ungit` shells out to it, it does not
 reimplement Git's object model.
 
-```r
+```ts
+cargo install ungit-cli
+```
+
+Building from source:
+
+```ts
 cargo install --path .
 ```
 
@@ -37,7 +43,7 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 ```
 
-```r
+```ts
 Options:
       --json     Emit machine readable JSON instead of formatted text, where supported
   -h, --help     Print help
@@ -50,7 +56,7 @@ for confirmation before rewriting the branch.
 
 ### Examples
 
-```r
+```ts
 ungit save "fix off-by-one in parser"
 ungit sync --remote origin
 ungit undo --hard
