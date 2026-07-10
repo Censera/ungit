@@ -64,7 +64,7 @@ else it re-reports with the same fix hint `check` already gave you, you run the 
 
 ## Contributing
  
-Open an [issue](https://github.com/Censera/ungit/issues) or send a [PR]((https://github.com/Censera/ungit/pulls)).
+Open an [issue](https://github.com/Censera/ungit/issues) or send a [PR](https://github.com/Censera/ungit/pulls).
  
 ## License
  
