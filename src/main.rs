@@ -2,6 +2,7 @@ mod allowlist;
 mod checks;
 mod cli;
 mod commands;
+mod diagnose;
 mod error;
 mod git;
 mod journal;
@@ -50,6 +51,11 @@ fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             output::error(e.to_string());
+            if let error::UngitError::GitCommand { command, stderr } = &e {
+                if let Some(fix) = diagnose::suggest(&repo, command, stderr) {
+                    output::detail(format!("fix: {fix}"));
+                }
+            }
             ExitCode::FAILURE
         }
     }

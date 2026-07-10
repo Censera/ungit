@@ -32,6 +32,14 @@ pub fn upstream_ref(repo: &Repo) -> Result<Option<String>> {
     Ok(Some(output.stdout_trimmed().to_string()))
 }
 
+pub fn get_url(repo: &Repo, remote: &str) -> Result<Option<String>> {
+    let output = repo.run(&["remote", "get-url", remote])?;
+    if !output.success {
+        return Ok(None);
+    }
+    Ok(Some(output.stdout_trimmed().to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
