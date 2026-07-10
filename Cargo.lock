@@ -221,7 +221,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ungit"
+name = "ungit-cli"
 version = "1.0.0"
 dependencies = [
  "clap",
