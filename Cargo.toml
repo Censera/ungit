@@ -1,9 +1,11 @@
 [package]
 name = "ungit"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 description = "A safety layer over Git for everyday workflows."
 license = "Apache-2.0"
+repository = "https://github.com/Censera/ungit"
+readme = "README.md"
 
 [[bin]]
 name = "ungit"
