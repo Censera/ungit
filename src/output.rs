@@ -12,7 +12,7 @@ pub fn step(msg: impl AsRef<str>) {
 
 /// Logs a terminal successful completion event message.
 pub fn success(msg: impl AsRef<str>) {
-    println!("  {} {}", "[:]".green().bold(), msg.as_ref());
+    println!("  {} {}", "[•]".green().bold(), msg.as_ref());
 }
 
 /// Logs a non-fatal anomaly message to inform the client process.
