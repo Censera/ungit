@@ -1,73 +1,83 @@
-# ungit
-
-[![License](https://img.shields.io/github/license/Censera/ungit.svg)](https://github.com/Censera/ungit/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/Censera/ungit.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-edition%202024-orange.svg)](https://doc.rust-lang.org/edition-guide/rust-2024/index.html)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/Censera/ungit/blob/main/Cargo.toml)
-[![Last commit](https://img.shields.io/github/last-commit/Censera/ungit.svg)](https://github.com/Censera/ungit/commits/main)
 
-A safety layer over Git for everyday workflows.
+`ungit` is a safety layer over Git for everyday workflows. it wraps the Git operations most likely to cause damage (losing commits, force-pushing over someone else's work, committing a secret) and refuses or warns before they go through. It calls `git`; it doesn't reimplement Git's object model.
 
-`ungit` wraps the Git operations that cause damage: losing commits,
-force-pushing over someone else's work, and committing a secret. It calls Git.
-It does not replace it.
-
-## Building
-
-Requires the `git` binary on `PATH`. `ungit` shells out to it, it does not
-reimplement Git's object model.
+## Install
 
 ```ts
 cargo install ungit-cli
 ```
 
-Building from source:
+Requires the `git` binary on `PATH`.
+
+**From source:**
 
 ```ts
 cargo install --path .
 ```
 
-## Usage
+## Commands
 
-```hs
-ungit [OPTIONS] <COMMAND>
-
-Commands:
-  save    Stage changes and create a commit, refusing obvious mistakes
-  sync    Fetch, rebase onto upstream, and push. Creates upstream if missing
-  undo    Undo the last commit, keeping the working tree intact
-  unsync  Revert the branch to its state before the last `sync`s rebase
-  start   Fetch, update main, and create a new branch from it
-  status  Show a human readable repository summary
-  check   Detect repository problems
-  repair  Repair problems found by `check`
-  help    Print this message or the help of the given subcommand(s)
+```ts
+ungit save <MESSAGE>    Stage all changes and commit, refusing obvious mistakes
+ungit sync              Fetch, rebase onto upstream, and push (publishes branch if no upstream)
+ungit undo              Undo the last commit, keeping the working tree intact
+ungit unsync            Revert the branch to its state before the last sync's rebase
+ungit start <BRANCH>    Fetch, update main, and create a new branch from it
+ungit status            Show a human-readable repository summary
+ungit check             Detect repository problems
+ungit repair            Fix problems found by check
 ```
 
 ```ts
 Options:
-      --json     Emit machine readable JSON instead of formatted text, where supported
-  -h, --help     Print help
-  -V, --version  Print version
+      --json    Emit machine-readable JSON where supported
+  -h, --help
+  -V, --version
 ```
 
-`undo --hard` discards the undone commit's changes instead of keeping them
-in the working tree. Destructive, asks for confirmation. `unsync` also asks
-for confirmation before rewriting the branch.
+## What `save` checks
 
-### Examples
+Before staging, `save` scans every changed path for:
+
+- Filenames that look like they contain secrets (private keys, credential files, `.env`)
+- Files that are unusually large for source
+
+Pass `--force` to commit anyway if you know what you're doing.
+
+## What `check` detects
+
+- Detached HEAD
+- Branch diverged from upstream
+- Duplicate patch already applied upstream
+- Tracked files that should be ignored
+- Interrupted merge or rebase state
+- Missing upstream tracking reference
+
+`repair` auto-fixes an in-progress rebase (`merge-state`). Everything else it re-reports with the same fix hint `check` already gave you; run the fix yourself.
+
+## Examples
 
 ```ts
 ungit save "update readme"
-ungit sync --remote origin
+ungit save --force "add .env.example"
+ungit sync
+ungit sync --remote upstream
+ungit undo
 ungit undo --hard
-ungit start feature/cleaning --from main
+ungit start feature/login --from main
+ungit check
 ungit check --allow ignored-files
 ungit repair --yes
 ```
 
-`repair` only auto fixes an in progress rebase (`merge-state`). Everything
-else it rereports with the same fix hint `check` already gave you, you run the fix yourself.
+`undo --hard` discards the undone commit's changes rather than staging them. Destructive; asks for confirmation. `unsync` also asks before rewriting the branch.
 
 ## Contributing
- 
+
 Open an [issue](https://github.com/Censera/ungit/issues) or send a [PR](https://github.com/Censera/ungit/pulls).
+
+## License
+
+[Apache 2.0](LICENSE)
