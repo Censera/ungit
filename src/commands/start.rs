@@ -1,31 +1,25 @@
 use crate::error::{Result, UngitError};
-use crate::git::{Repo, branch, remote, status};
+use crate::git::{branch, remote, status};
 use crate::output;
 
-/// Fetches remote updates and cuts a new local branch from a base reference tip.
-pub fn run(repo: &Repo, name: &str, from: Option<&str>) -> Result<()> {
+/// Starts a new piece of work from the repository's default branch.
+pub fn run(repo: &crate::git::Repo, name: &str) -> Result<()> {
     if status::is_dirty(repo)? {
         return Err(UngitError::Precondition(
-            "working tree has uncommitted changes, save or stash them first".to_string(),
+            "working tree has unsaved changes; save them before starting new work".to_string(),
         ));
     }
 
-    output::step("Fetching origin...");
+    output::step("Updating repository...");
     remote::fetch(repo, None)?;
 
-    let base = match from {
-        Some(explicit) => explicit.to_string(),
-        None => branch::default_branch(repo)?.ok_or_else(|| {
-            UngitError::Precondition(
-                "could not determine the default branch, pass --from explicitly".to_string(),
-            )
-        })?,
-    };
+    let base = branch::default_branch(repo)?.ok_or_else(|| {
+        UngitError::Precondition("could not determine the repository's default branch".to_string())
+    })?;
 
-    let remote_ref = format!("origin/{base}");
-    output::step(format!("Creating '{name}' from {remote_ref}..."));
-    branch::create_and_switch(repo, name, &remote_ref)?;
+    output::step(format!("Starting '{name}' from {base}..."));
+    branch::create_and_switch(repo, name, &format!("origin/{base}"))?;
 
-    output::success(format!("Switched to new branch '{name}'."));
+    output::success(format!("Started '{name}'."));
     Ok(())
 }
