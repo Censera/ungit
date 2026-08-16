@@ -32,10 +32,10 @@ fn main() -> ExitCode {
 
     let result = match &cli.command {
         Commands::Save(args) => commands::save::run(&repo, &args.message, args.force),
-        Commands::Publish => commands::sync::run(&repo),
+        Commands::Publish => commands::publish::run(&repo),
         Commands::Undo(args) => commands::undo::run(&repo, args.hard),
-        Commands::Begin(args) => commands::start::run(&repo, &args.name),
-        Commands::Quality => commands::status::run(&repo, cli.json),
+        Commands::Begin(args) => commands::begin::run(&repo, &args.name),
+        Commands::Quality => commands::quality::run(&repo, cli.json),
     };
 
     match result {
