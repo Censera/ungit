@@ -2,8 +2,7 @@ use crate::error::{Result, UngitError};
 use crate::git::{branch, remote, status};
 use crate::output;
 
-/// Starts new work only after the current branch has been brought to the
-/// latest shared state.
+/// Starts new work from the latest shared base.
 pub fn run(repo: &crate::git::Repo, name: &str) -> Result<()> {
     if status::is_dirty(repo)? {
         return Err(UngitError::Precondition(
@@ -23,22 +22,25 @@ pub fn run(repo: &crate::git::Repo, name: &str) -> Result<()> {
     let base = branch::default_branch(repo)?.ok_or_else(|| {
         UngitError::Precondition("could not determine the repository's default branch".to_string())
     })?;
-
     let remote_base = format!("origin/{base}");
     let current = status::current_branch(repo)?.ok_or_else(|| {
         UngitError::Precondition("there is no active branch".to_string())
     })?;
-    let relation = status::ahead_behind(repo, &remote_base)?.ok_or_else(|| {
-        UngitError::Precondition("could not determine whether the current branch is up to date".to_string())
-    })?;
+    let relation = status::ahead_behind(repo, &remote_base)?;
 
-    if current == base && relation.ahead == 0 && relation.behind > 0 {
-        output::step("Updating the base branch...");
-        repo.require(&["merge", "--ff-only", &remote_base])?;
-    } else if current == base && (relation.ahead > 0 || relation.behind > 0) {
-        return Err(UngitError::Refused(
-            "the base branch contains local work; ungit will not start new work from a divergent base".to_string(),
-        ));
+    if current == base {
+        match (relation.ahead, relation.behind) {
+            (0, 0) => {}
+            (0, _) => {
+                output::step("Updating the base branch...");
+                repo.require(&["merge", "--ff-only", &remote_base])?;
+            }
+            _ => {
+                return Err(UngitError::Refused(
+                    "the base branch contains local work; ungit will not start new work from a divergent base".to_string(),
+                ));
+            }
+        }
     }
 
     output::step(format!("Starting '{name}' from {remote_base}..."));
