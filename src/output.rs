@@ -21,8 +21,8 @@ pub fn info(msg: impl AsRef<str>) {
 }
 
 pub fn json<T: serde::Serialize>(value: &T) -> crate::error::Result<()> {
-    let rendered = serde_json::to_string_pretty(value)
-        .map_err(crate::error::UngitError::JsonOutput)?;
+    let rendered =
+        serde_json::to_string_pretty(value).map_err(crate::error::UngitError::JsonOutput)?;
     println!("{rendered}");
     Ok(())
 }

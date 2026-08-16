@@ -1,5 +1,5 @@
 use crate::error::{Result, UngitError};
-use crate::git::{commit, Repo};
+use crate::git::{Repo, commit};
 use crate::output;
 
 /// Undoes the last save while keeping its changes in the working tree.

@@ -50,12 +50,16 @@ pub fn ahead_behind(repo: &Repo, other_ref: &str) -> Result<AheadBehind> {
         .next()
         .ok_or_else(|| UngitError::Precondition("Git returned no ahead count".to_string()))?
         .parse()
-        .map_err(|error| UngitError::Precondition(format!("invalid ahead count from Git: {error}")))?;
+        .map_err(|error| {
+            UngitError::Precondition(format!("invalid ahead count from Git: {error}"))
+        })?;
     let behind = parts
         .next()
         .ok_or_else(|| UngitError::Precondition("Git returned no behind count".to_string()))?
         .parse()
-        .map_err(|error| UngitError::Precondition(format!("invalid behind count from Git: {error}")))?;
+        .map_err(|error| {
+            UngitError::Precondition(format!("invalid behind count from Git: {error}"))
+        })?;
     Ok(AheadBehind { ahead, behind })
 }
 
@@ -71,17 +75,19 @@ pub enum OperationState {
 
 pub fn operation_state(repo: &Repo) -> Result<OperationState> {
     let git_dir = repo.git_dir()?;
-    Ok(if git_dir.join("rebase-merge").is_dir() || git_dir.join("rebase-apply").is_dir() {
-        OperationState::Rebasing
-    } else if git_dir.join("MERGE_HEAD").is_file() {
-        OperationState::Merging
-    } else if git_dir.join("CHERRY_PICK_HEAD").is_file() {
-        OperationState::CherryPicking
-    } else if git_dir.join("REVERT_HEAD").is_file() {
-        OperationState::Reverting
-    } else if git_dir.join("BISECT_LOG").is_file() {
-        OperationState::BisectInProgress
-    } else {
-        OperationState::Clean
-    })
+    Ok(
+        if git_dir.join("rebase-merge").is_dir() || git_dir.join("rebase-apply").is_dir() {
+            OperationState::Rebasing
+        } else if git_dir.join("MERGE_HEAD").is_file() {
+            OperationState::Merging
+        } else if git_dir.join("CHERRY_PICK_HEAD").is_file() {
+            OperationState::CherryPicking
+        } else if git_dir.join("REVERT_HEAD").is_file() {
+            OperationState::Reverting
+        } else if git_dir.join("BISECT_LOG").is_file() {
+            OperationState::BisectInProgress
+        } else {
+            OperationState::Clean
+        },
+    )
 }

@@ -7,9 +7,8 @@ use crate::output;
 /// The repository starts clean, reconciliation is transactional, and a failed
 /// operation is reported with its rollback result instead of being swallowed.
 pub fn run(repo: &crate::git::Repo) -> Result<()> {
-    let branch = status::current_branch(repo)?.ok_or_else(|| {
-        UngitError::Precondition("there is no active piece of work".to_string())
-    })?;
+    let branch = status::current_branch(repo)?
+        .ok_or_else(|| UngitError::Precondition("there is no active piece of work".to_string()))?;
 
     if status::operation_state(repo)? != status::OperationState::Clean {
         return Err(UngitError::Precondition(
@@ -23,7 +22,10 @@ pub fn run(repo: &crate::git::Repo) -> Result<()> {
         ));
     }
 
-    let original = repo.require(&["rev-parse", "HEAD"])?.stdout_trimmed().to_string();
+    let original = repo
+        .require(&["rev-parse", "HEAD"])?
+        .stdout_trimmed()
+        .to_string();
 
     output::step("Checking for new work...");
     remote::fetch(repo)?;
@@ -87,9 +89,7 @@ pub fn run(repo: &crate::git::Repo) -> Result<()> {
 fn rollback_after_rebase(repo: &crate::git::Repo, original: &str, reason: String) -> UngitError {
     match repo.require(&["rebase", "--abort"]) {
         Ok(_) => rollback_error(repo, original, reason),
-        Err(error) => UngitError::Refused(format!(
-            "{reason}; rebase abort also failed: {error}"
-        )),
+        Err(error) => UngitError::Refused(format!("{reason}; rebase abort also failed: {error}")),
     }
 }
 

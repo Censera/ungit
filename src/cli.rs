@@ -1,11 +1,7 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
-#[command(
-    name = "ungit",
-    version,
-    about = "A simple, safe workflow for Git."
-)]
+#[command(name = "ungit", version, about = "A simple, safe workflow for Git.")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,

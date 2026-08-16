@@ -66,7 +66,10 @@ mod tests {
             root: PathBuf::from("/home/user/project"),
             executor: &git,
         };
-        assert_eq!(repo.git_dir().unwrap(), PathBuf::from("/home/user/project/.git"));
+        assert_eq!(
+            repo.git_dir().unwrap(),
+            PathBuf::from("/home/user/project/.git")
+        );
     }
 
     #[test]

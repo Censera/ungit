@@ -21,7 +21,11 @@ pub fn summarize(repo: &Repo) -> Result<StatusSummary> {
         None => false,
     };
 
-    Ok(StatusSummary { work, saved, synced })
+    Ok(StatusSummary {
+        work,
+        saved,
+        synced,
+    })
 }
 
 pub fn run(repo: &Repo, json: bool) -> Result<()> {
@@ -35,8 +39,14 @@ pub fn run(repo: &Repo, json: bool) -> Result<()> {
         Some(name) => output::info(format!("work: {name}")),
         None => output::info("work: none"),
     }
-    output::info(format!("saved: {}", if summary.saved { "yes" } else { "no" }));
-    output::info(format!("synced: {}", if summary.synced { "yes" } else { "no" }));
+    output::info(format!(
+        "saved: {}",
+        if summary.saved { "yes" } else { "no" }
+    ));
+    output::info(format!(
+        "synced: {}",
+        if summary.synced { "yes" } else { "no" }
+    ));
 
     Ok(())
 }

@@ -23,9 +23,8 @@ pub fn run(repo: &crate::git::Repo, name: &str) -> Result<()> {
         UngitError::Precondition("could not determine the repository's default branch".to_string())
     })?;
     let remote_base = format!("origin/{base}");
-    let current = status::current_branch(repo)?.ok_or_else(|| {
-        UngitError::Precondition("there is no active branch".to_string())
-    })?;
+    let current = status::current_branch(repo)?
+        .ok_or_else(|| UngitError::Precondition("there is no active branch".to_string()))?;
     let relation = status::ahead_behind(repo, &remote_base)?;
 
     if current == base {

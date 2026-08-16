@@ -18,7 +18,12 @@ pub fn push(repo: &Repo, branch: &str, set_upstream: bool) -> Result<()> {
 pub fn push_with_lease(repo: &Repo, branch: &str) -> Result<()> {
     let lease = format!("{branch}:refs/remotes/origin/{branch}");
     let destination = format!("HEAD:refs/heads/{branch}");
-    repo.require(&["push", &format!("--force-with-lease={lease}"), "origin", &destination])?;
+    repo.require(&[
+        "push",
+        &format!("--force-with-lease={lease}"),
+        "origin",
+        &destination,
+    ])?;
     Ok(())
 }
 
