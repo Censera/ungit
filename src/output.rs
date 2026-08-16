@@ -20,13 +20,9 @@ pub fn info(msg: impl AsRef<str>) {
     println!("  {}", msg.as_ref());
 }
 
-pub fn detail(msg: impl AsRef<str>) {
-    println!("    {}", msg.as_ref().dimmed());
-}
-
 pub fn json<T: serde::Serialize>(value: &T) -> crate::error::Result<()> {
-    let rendered =
-        serde_json::to_string_pretty(value).map_err(crate::error::UngitError::JsonOutput)?;
+    let rendered = serde_json::to_string_pretty(value)
+        .map_err(crate::error::UngitError::JsonOutput)?;
     println!("{rendered}");
     Ok(())
 }
