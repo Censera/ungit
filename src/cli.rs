@@ -16,8 +16,8 @@ pub enum Commands {
     /// Save all current changes as one commit.
     Save(SaveArgs),
 
-    /// Update the current work and publish it.
-    Update,
+    /// Publish the current work after reconciling it with shared work.
+    Publish,
 
     /// Undo the last save while keeping its changes in the working tree.
     Undo(UndoArgs),
