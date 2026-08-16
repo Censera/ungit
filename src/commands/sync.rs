@@ -26,19 +26,18 @@ pub fn run(repo: &crate::git::Repo) -> Result<()> {
     let original = repo.require(&["rev-parse", "HEAD"])?.stdout_trimmed().to_string();
 
     output::step("Checking for new work...");
-    remote::fetch(repo, None)?;
+    remote::fetch(repo)?;
 
-    let Some(remote_head) = remote::remote_head(repo, "origin", &branch)? else {
+    let Some(remote_head) = remote::remote_head(repo, &branch)? else {
         output::step("Publishing work for the first time...");
-        remote::push(repo, "origin", &branch, true)?;
+        remote::push(repo, &branch, true)?;
         output::success("Work is synced.");
         return Ok(());
     };
 
-    let ahead = commit_count(repo, &format!("{remote_head}..HEAD"))?;
-    let behind = commit_count(repo, &format!("HEAD..{remote_head}"))?;
+    let relation = status::ahead_behind(repo, &remote_head)?;
 
-    match (ahead, behind) {
+    match (relation.ahead, relation.behind) {
         (0, 0) => {
             output::success("Work is already synced.");
             Ok(())
@@ -71,7 +70,7 @@ pub fn run(repo: &crate::git::Repo) -> Result<()> {
             }
 
             output::step("Publishing work safely...");
-            if let Err(error) = remote::push_with_lease(repo, "origin", &branch) {
+            if let Err(error) = remote::push_with_lease(repo, &branch) {
                 return Err(rollback_error(
                     repo,
                     &original,
@@ -83,14 +82,6 @@ pub fn run(repo: &crate::git::Repo) -> Result<()> {
             Ok(())
         }
     }
-}
-
-fn commit_count(repo: &crate::git::Repo, range: &str) -> Result<u32> {
-    let output = repo.require(&["rev-list", "--count", range])?;
-    output
-        .stdout_trimmed()
-        .parse::<u32>()
-        .map_err(|error| UngitError::Precondition(format!("invalid commit count from Git: {error}")))
 }
 
 fn rollback_after_rebase(repo: &crate::git::Repo, original: &str, reason: String) -> UngitError {
