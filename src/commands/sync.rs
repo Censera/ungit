@@ -29,9 +29,9 @@ pub fn run(repo: &crate::git::Repo) -> Result<()> {
     remote::fetch(repo, None)?;
 
     let Some(remote_head) = remote::remote_head(repo, "origin", &branch)? else {
-        if status::ahead_behind(repo, "HEAD")?.is_some() {
-            output::info("No remote copy exists yet; nothing to update.");
-        }
+        output::step("Publishing work for the first time...");
+        remote::push(repo, "origin", &branch, true)?;
+        output::success("Work is synced.");
         return Ok(());
     };
 
