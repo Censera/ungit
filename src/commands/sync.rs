@@ -4,8 +4,8 @@ use crate::output;
 
 /// Synchronizes the current work with the shared repository.
 ///
-/// With no local work, sync only brings the branch forward to the fetched
-/// remote state. With saved local work, sync reconciles it and publishes it.
+/// The repository starts clean, reconciliation is transactional, and a failed
+/// operation is reported with its rollback result instead of being swallowed.
 pub fn run(repo: &crate::git::Repo) -> Result<()> {
     let branch = status::current_branch(repo)?.ok_or_else(|| {
         UngitError::Precondition("there is no active piece of work".to_string())
@@ -35,59 +35,80 @@ pub fn run(repo: &crate::git::Repo) -> Result<()> {
         return Ok(());
     };
 
-    let ahead = repo.require(&["rev-list", "--count", &format!("{remote_head}..HEAD")])?
-        .stdout_trimmed()
-        .parse::<u32>()
-        .unwrap_or(0);
-    let behind = repo.require(&["rev-list", "--count", &format!("HEAD..{remote_head}")])?
-        .stdout_trimmed()
-        .parse::<u32>()
-        .unwrap_or(0);
+    let ahead = commit_count(repo, &format!("{remote_head}..HEAD"))?;
+    let behind = commit_count(repo, &format!("HEAD..{remote_head}"))?;
 
-    if ahead == 0 && behind == 0 {
-        output::success("Work is already synced.");
-        return Ok(());
-    }
-
-    if ahead == 0 && behind > 0 {
-        output::step("Updating to the latest shared work...");
-        if let Err(error) = repo.require(&["merge", "--ff-only", &remote_head]) {
-            let _ = repo.run(&["merge", "--abort"]);
-            restore(repo, &original);
-            return Err(UngitError::Refused(format!(
-                "shared work could not be applied safely; your repository was restored to its previous state. {error}"
-            )));
+    match (ahead, behind) {
+        (0, 0) => {
+            output::success("Work is already synced.");
+            Ok(())
         }
-        output::success("Work is up to date.");
-        return Ok(());
-    }
+        (0, _) => {
+            output::step("Updating to the latest shared work...");
+            match repo.require(&["merge", "--ff-only", &remote_head]) {
+                Ok(_) => {
+                    output::success("Work is up to date.");
+                    Ok(())
+                }
+                Err(error) => Err(rollback_error(
+                    repo,
+                    &original,
+                    format!("shared work could not be applied safely: {error}"),
+                )),
+            }
+        }
+        _ => {
+            output::step("Reconciling saved work with newer shared work...");
+            let result = repo.run(&["rebase", &remote_head])?;
+            if !result.success {
+                let rebase_error = result.stderr.trim();
+                let message = if rebase_error.is_empty() {
+                    "saved work conflicts with newer shared work".to_string()
+                } else {
+                    format!("saved work could not be reconciled: {rebase_error}")
+                };
+                return Err(rollback_after_rebase(repo, &original, message));
+            }
 
-    output::step("Reconciliating saved work with newer shared work...");
-    let result = repo.run(&["rebase", &remote_head])?;
-    if !result.success {
-        abort_rebase(repo);
-        restore(repo, &original);
-        return Err(UngitError::Refused(
-            "saved work conflicts with newer shared work; your repository was restored to its previous state".to_string(),
-        ));
-    }
+            output::step("Publishing work safely...");
+            if let Err(error) = remote::push_with_lease(repo, "origin", &branch) {
+                return Err(rollback_error(
+                    repo,
+                    &original,
+                    format!("publication was refused: {error}"),
+                ));
+            }
 
-    output::step("Publishing work safely...");
-    if let Err(error) = remote::push_with_lease(repo, "origin", &branch) {
-        restore(repo, &original);
-        return Err(UngitError::Refused(format!(
-            "publication was refused; your repository was restored to its previous state. {error}"
-        )));
+            output::success("Work is synced.");
+            Ok(())
+        }
     }
-
-    output::success("Work is synced.");
-    Ok(())
 }
 
-fn abort_rebase(repo: &crate::git::Repo) {
-    let _ = repo.run(&["rebase", "--abort"]);
+fn commit_count(repo: &crate::git::Repo, range: &str) -> Result<u32> {
+    let output = repo.require(&["rev-list", "--count", range])?;
+    output
+        .stdout_trimmed()
+        .parse::<u32>()
+        .map_err(|error| UngitError::Precondition(format!("invalid commit count from Git: {error}")))
 }
 
-fn restore(repo: &crate::git::Repo, original: &str) {
-    let _ = repo.run(&["reset", "--hard", original]);
+fn rollback_after_rebase(repo: &crate::git::Repo, original: &str, reason: String) -> UngitError {
+    match repo.require(&["rebase", "--abort"]) {
+        Ok(_) => rollback_error(repo, original, reason),
+        Err(error) => UngitError::Refused(format!(
+            "{reason}; rebase abort also failed: {error}"
+        )),
+    }
+}
+
+fn rollback_error(repo: &crate::git::Repo, original: &str, reason: String) -> UngitError {
+    match repo.require(&["reset", "--hard", original]) {
+        Ok(_) => UngitError::Refused(format!(
+            "{reason}; your repository was restored to its previous state"
+        )),
+        Err(error) => UngitError::Refused(format!(
+            "{reason}; restoring the previous repository state also failed: {error}"
+        )),
+    }
 }
