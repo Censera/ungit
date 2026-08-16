@@ -5,10 +5,10 @@
 The model is:
 
 ```text
-start → work → save → sync
+update → begin → work → save → update
 ```
 
-You work normally. When the work is worth keeping, save it. When it is ready to be shared, sync it. `ungit` handles the Git machinery underneath.
+You work normally. When the work is worth keeping, save it. When it is ready to be shared, update it. `ungit` handles the Git machinery underneath.
 
 ## Install
 
@@ -27,11 +27,11 @@ cargo install --path .
 ## Commands
 
 ```text
-ungit start <NAME>      Start a new piece of work
+ungit begin <NAME>      Begin a new piece of work
 ungit save <MESSAGE>    Save all current changes
-ungit sync              Update and publish current work
+ungit update            Update and publish current work
 ungit undo              Undo the last save
-ungit status            Show the current state
+ungit quality           Show workflow health
 ```
 
 That is the normal workflow. There is no staging step, no upstream setup, no manual rebase, and no recovery command users need to learn.
@@ -39,7 +39,8 @@ That is the normal workflow. There is no staging step, no upstream setup, no man
 ## Example
 
 ```sh
-ungit start login
+ungit update
+ungit begin login
 
 # work
 
@@ -48,20 +49,20 @@ ungit save "implement login"
 # work
 
 ungit save "fix validation"
-ungit sync
+ungit update
 ```
 
 `save` checks changed paths for obvious secrets and unusually large files before committing. Use `--force` only when you intentionally want to bypass those checks.
 
 `undo` is an escape hatch for the last local save. `undo --hard` permanently discards its changes and requires care.
 
-`status` is informational. It is not required to operate the workflow.
+`quality` is informational. It is not required to operate the workflow.
 
 ## Design
 
 Git remains the storage and transport mechanism. `ungit` does not attempt to replace Git's object model or expose all of Git's concepts. Its job is to make the common lifecycle small, predictable, and difficult to break accidentally.
 
-When `sync` needs to reconcile local work with remote work, it does that internally. If reconciliation fails, it aborts the operation instead of leaving the user inside an unfinished Git operation.
+The first `update` establishes the current shared state before work begins. The final `update` reconciles saved work with newer shared work before publishing it. If reconciliation fails, it aborts the operation instead of leaving the user inside an unfinished Git operation.
 
 ## License
 
