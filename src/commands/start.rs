@@ -17,7 +17,7 @@ pub fn run(repo: &crate::git::Repo, name: &str) -> Result<()> {
     }
 
     output::step("Checking for the latest shared work...");
-    remote::fetch(repo, None)?;
+    remote::fetch(repo)?;
 
     let base = branch::default_branch(repo)?.ok_or_else(|| {
         UngitError::Precondition("could not determine the repository's default branch".to_string())
