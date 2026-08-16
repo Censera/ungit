@@ -15,6 +15,9 @@ pub enum UngitError {
     #[error("refused: {0}")]
     Refused(String),
 
+    #[error("input error: {0}")]
+    Input(String),
+
     #[error("journal error: {0}")]
     Journal(String),
 

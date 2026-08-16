@@ -5,9 +5,7 @@ use crate::git::status::OperationState;
 use crate::git::{Repo, rebase, status};
 use crate::output;
 
-/// Prompts and applies automated fixes for active repository findings.
-/// Skips findings that are allowlisted or lack an automated fix strategy.
-pub fn run(repo: &Repo, auto_confirm: bool, confirm: impl Fn(&str) -> bool) -> Result<()> {
+pub fn run(repo: &Repo, auto_confirm: bool, confirm: impl Fn(&str) -> Result<bool>) -> Result<()> {
     let git_dir = repo.git_dir()?;
     let allowed_names = allowlist::read(&git_dir)?;
     let is_allowed = |name: &str| allowed_names.iter().any(|n| n == name);
@@ -31,7 +29,7 @@ pub fn run(repo: &Repo, auto_confirm: bool, confirm: impl Fn(&str) -> bool) -> R
                     continue;
                 }
                 let prompt = "Abort the in-progress rebase? This discards rebase progress.";
-                if auto_confirm || confirm(prompt) {
+                if auto_confirm || confirm(prompt)? {
                     rebase::abort(repo)?;
                     output::success("Rebase aborted; branch restored to its pre-rebase state.");
                     repaired_any = true;

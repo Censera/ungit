@@ -12,7 +12,7 @@ mod util;
 use clap::Parser;
 use cli::{Cli, Commands};
 use git::{Repo, SystemGit};
-use std::io::Write;
+use std::io::{self, Write};
 use std::process::ExitCode;
 use owo_colors::OwoColorize;
 
@@ -61,23 +61,23 @@ fn main() -> ExitCode {
     }
 }
 
-/// Executes the undo command pipeline, forcing interactive confirmation if a destructive hard reset is requested.
 fn run_undo(repo: &Repo, args: &cli::UndoArgs) -> error::Result<()> {
-    if args.hard && !prompt_confirm("Discard the last commit's changes permanently?") {
-        return Err(error::UngitError::Refused(
-            "undo --hard cancelled".to_string(),
-        ));
+    if args.hard && !prompt_confirm("Discard the last commit's changes permanently?")? {
+        return Err(error::UngitError::Refused("undo --hard cancelled".to_string()));
     }
     commands::undo::run(repo, args.hard)
 }
 
-/// Captures user input on standard input to determine execution authorization.
-fn prompt_confirm(message: &str) -> bool {
-    print!("  {message} {} ", "[y/N]".yellow().bold());
-    let _ = std::io::stdout().flush();
+fn prompt_confirm(message: &str) -> error::Result<bool> {
+    print!("{message} {} ", "[y/N]".yellow().bold());
+    io::stdout()
+        .flush()
+        .map_err(|e| error::UngitError::Input(format!("flushing confirmation prompt: {e}")))?;
+
     let mut input = String::new();
-    if std::io::stdin().read_line(&mut input).is_err() {
-        return false;
-    }
-    matches!(input.trim().to_lowercase().as_str(), "y" | "yes")
+    io::stdin()
+        .read_line(&mut input)
+        .map_err(|e| error::UngitError::Input(format!("reading confirmation: {e}")))?;
+
+    Ok(matches!(input.trim().to_lowercase().as_str(), "y" | "yes"))
 }
