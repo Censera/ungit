@@ -1,83 +1,68 @@
-[![License](https://img.shields.io/github/license/Censera/ungit.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-edition%202024-orange.svg)](https://doc.rust-lang.org/edition-guide/rust-2024/index.html)
+# ungit
 
-`ungit` is a safety layer over Git for everyday workflows. it wraps the Git operations most likely to cause damage (losing commits, force-pushing over someone else's work, committing a secret) and refuses or warns before they go through. It calls `git`; it doesn't reimplement Git's object model.
+`ungit` is a small workflow layer over Git for everyday work. It deliberately hides Git's staging, upstream, rebase, and branch machinery behind a few safe actions.
+
+The model is:
+
+```text
+start → work → save → sync
+```
+
+You work normally. When the work is worth keeping, save it. When it is ready to be shared, sync it. `ungit` handles the Git machinery underneath.
 
 ## Install
 
-```ts
+```sh
 cargo install ungit-cli
 ```
 
 Requires the `git` binary on `PATH`.
 
-**From source:**
+From source:
 
-```ts
+```sh
 cargo install --path .
 ```
 
 ## Commands
 
-```ts
-ungit save <MESSAGE>    Stage all changes and commit, refusing obvious mistakes
-ungit sync              Fetch, rebase onto upstream, and push (publishes branch if no upstream)
-ungit undo              Undo the last commit, keeping the working tree intact
-ungit unsync            Revert the branch to its state before the last sync's rebase
-ungit start <BRANCH>    Fetch, update main, and create a new branch from it
-ungit status            Show a human-readable repository summary
-ungit check             Detect repository problems
-ungit repair            Fix problems found by check
+```text
+ungit start <NAME>      Start a new piece of work
+ungit save <MESSAGE>    Save all current changes
+ungit sync              Update and publish current work
+ungit undo              Undo the last save
+ungit status            Show the current state
 ```
 
-```ts
-Options:
-      --json    Emit machine-readable JSON where supported
-  -h, --help
-  -V, --version
-```
+That is the normal workflow. There is no staging step, no upstream setup, no manual rebase, and no recovery command users need to learn.
 
-## What `save` checks
+## Example
 
-Before staging, `save` scans every changed path for:
+```sh
+ungit start login
 
-- Filenames that look like they contain secrets (private keys, credential files, `.env`)
-- Files that are unusually large for source
+# work
 
-Pass `--force` to commit anyway if you know what you're doing.
+ungit save "implement login"
 
-## What `check` detects
+# work
 
-- Detached HEAD
-- Branch diverged from upstream
-- Duplicate patch already applied upstream
-- Tracked files that should be ignored
-- Interrupted merge or rebase state
-- Missing upstream tracking reference
-
-`repair` auto-fixes an in-progress rebase (`merge-state`). Everything else it re-reports with the same fix hint `check` already gave you; run the fix yourself.
-
-## Examples
-
-```ts
-ungit save "update readme"
-ungit save --force "add .env.example"
+ungit save "fix validation"
 ungit sync
-ungit sync --remote upstream
-ungit undo
-ungit undo --hard
-ungit start feature/login --from main
-ungit check
-ungit check --allow ignored-files
-ungit repair --yes
 ```
 
-`undo --hard` discards the undone commit's changes rather than staging them. Destructive; asks for confirmation. `unsync` also asks before rewriting the branch.
+`save` checks changed paths for obvious secrets and unusually large files before committing. Use `--force` only when you intentionally want to bypass those checks.
 
-## Contributing
+`undo` is an escape hatch for the last local save. `undo --hard` permanently discards its changes and requires care.
 
-Open an [issue](https://github.com/Censera/ungit/issues) or send a [PR](https://github.com/Censera/ungit/pulls).
+`status` is informational. It is not required to operate the workflow.
+
+## Design
+
+Git remains the storage and transport mechanism. `ungit` does not attempt to replace Git's object model or expose all of Git's concepts. Its job is to make the common lifecycle small, predictable, and difficult to break accidentally.
+
+When `sync` needs to reconcile local work with remote work, it does that internally. If reconciliation fails, it aborts the operation instead of leaving the user inside an unfinished Git operation.
 
 ## License
 
-[Apache 2.0](LICENSE)
+Apache 2.0
