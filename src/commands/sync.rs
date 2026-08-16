@@ -4,9 +4,8 @@ use crate::output;
 
 /// Synchronizes the current piece of work without exposing Git's intermediate states.
 ///
-/// The operation is transactional from the user's perspective: reconciliation is
-/// aborted on conflict, and a failed publication is never allowed to overwrite a
-/// collaborator's newer remote work.
+/// Reconciliation is aborted on conflict, and publication is protected against
+/// collaborators changing the remote after the fetch.
 pub fn run(repo: &crate::git::Repo) -> Result<()> {
     let branch = status::current_branch(repo)?.ok_or_else(|| {
         UngitError::Precondition("there is no active piece of work".to_string())
@@ -29,9 +28,15 @@ pub fn run(repo: &crate::git::Repo) -> Result<()> {
     output::step("Checking for new work...");
     remote::fetch(repo, None)?;
 
-    let upstream = remote::upstream_ref(repo)?;
-    if let Some(upstream) = upstream {
-        if status::ahead_behind(repo, &upstream)?.map(|ab| ab.behir).unwrap_or(0) > 0 {
+    let has_remote_branch = remote::remote_branch_exists(repo, "origin", &branch)?;
+
+    if has_remote_branch {
+        let upstream = remote::upstream_ref(repo)?.unwrap_or_else(|| format!("origin/{branch}"));
+        let ahead_behind = status::ahead_behind(repo, &upstream)?.ok_or_else(|| {
+            UngitError::Refused("could not determine the relationship with remote work".to_string())
+        })?;
+
+        if ahead_behind.behind > 0 {
             output::step("Reconciliating with newer work...");
             let result = repo.run(&["rebase", &upstream])?;
             if !result.success {
@@ -45,15 +50,17 @@ pub fn run(repo: &crate::git::Repo) -> Result<()> {
     }
 
     output::step("Publishing work safely...");
-    if let Err(error) = remote::push_with_lease(repo, "origin", &branch) {
+    let push_result = if has_remote_branch {
+        remote::push_with_lease(repo, "origin", &branch)
+    } else {
+        remote::push(repo, "origin", &branch, true)
+    };
+
+    if let Err(error) = push_result {
         restore(repo, &original);
         return Err(UngitError::Refused(format!(
-            "publication was refused because the remote changed; your repository was restored. {error}"
+            "publication was refused; your repository was restored to its previous state. {error}"
         )));
-    }
-
-    if remote::upstream_ref(repo)?.is_none() {
-        remote::set_upstream(repo, "origin", &branch)?;
     }
 
     output::success("Work is synced.");
