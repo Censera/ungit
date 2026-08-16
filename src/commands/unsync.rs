@@ -3,14 +3,10 @@ use crate::git::{Repo, status};
 use crate::journal;
 use crate::output;
 
-/// Reverts the active branch head to the state recorded prior to the most recent sync.
-/// Performs a hard reset to the journaled SHA.
-pub fn run(repo: &Repo, confirm: impl Fn(&str) -> bool) -> Result<()> {
+pub fn run(repo: &Repo, confirm: impl Fn(&str) -> Result<bool>) -> Result<()> {
     let git_dir = repo.git_dir()?;
     let Some(entry) = journal::last(&git_dir)? else {
-        return Err(UngitError::Precondition(
-            "no journaled sync to undo".to_string(),
-        ));
+        return Err(UngitError::Precondition("no journaled sync to undo".to_string()));
     };
 
     let current_branch = status::current_branch(repo)?;
@@ -30,7 +26,7 @@ pub fn run(repo: &Repo, confirm: impl Fn(&str) -> bool) -> Result<()> {
         "Reset '{}' to {}? This discards the rebase from the last sync",
         entry.branch, entry.pre_image_sha
     );
-    if !confirm(&prompt) {
+    if !confirm(&prompt)? {
         return Err(UngitError::Refused("unsync cancelled".to_string()));
     }
 
