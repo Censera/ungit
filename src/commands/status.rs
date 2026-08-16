@@ -10,21 +10,20 @@ pub struct StatusSummary {
     pub synced: bool,
 }
 
-/// Describes the repository in terms of the ungit workflow rather than Git internals.
 pub fn summarize(repo: &Repo) -> Result<StatusSummary> {
     let work = status::current_branch(repo)?;
     let saved = status::porcelain(repo)?.is_empty();
     let synced = match remote::upstream_ref(repo)? {
-        Some(upstream) => status::ahead_behind(repo, &upstream)?
-            .map(|ab| ab.ahead == 0 && ab.behind == 0)
-            .unwrap_or(false),
+        Some(upstream) => {
+            let relation = status::ahead_behind(repo, &upstream)?;
+            relation.ahead == 0 && relation.behind == 0
+        }
         None => false,
     };
 
     Ok(StatusSummary { work, saved, synced })
 }
 
-/// `ungit status`
 pub fn run(repo: &Repo, json: bool) -> Result<()> {
     let summary = summarize(repo)?;
 
