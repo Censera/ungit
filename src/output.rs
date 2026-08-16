@@ -1,27 +1,27 @@
 use owo_colors::OwoColorize;
 
 pub fn step(msg: impl AsRef<str>) {
-    println!("{}", msg.as_ref().blue().bold());
+    println!("  {}", msg.as_ref().blue().bold());
 }
 
 pub fn success(msg: impl AsRef<str>) {
-    println!("{}", msg.as_ref().green().bold());
+    println!("  {}", msg.as_ref().green().bold());
 }
 
 pub fn warning(msg: impl AsRef<str>) {
-    println!("{}", msg.as_ref().yellow().bold());
+    println!("  {}", msg.as_ref().yellow().bold());
 }
 
 pub fn error(msg: impl AsRef<str>) {
-    eprintln!("{}", msg.as_ref().red().bold());
+    eprintln!("  {}", msg.as_ref().red().bold());
 }
 
 pub fn info(msg: impl AsRef<str>) {
-    println!("{}", msg.as_ref());
+    println!("  {}", msg.as_ref());
 }
 
 pub fn detail(msg: impl AsRef<str>) {
-    println!("{}", msg.as_ref().dimmed());
+    println!("    {}", msg.as_ref().dimmed());
 }
 
 pub fn json<T: serde::Serialize>(value: &T) -> crate::error::Result<()> {
