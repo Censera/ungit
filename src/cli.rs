@@ -16,17 +16,17 @@ pub enum Commands {
     /// Save all current changes as one commit.
     Save(SaveArgs),
 
-    /// Bring the current work up to date and publish it.
-    Sync,
+    /// Update the current work and publish it.
+    Update,
 
     /// Undo the last save while keeping its changes in the working tree.
     Undo(UndoArgs),
 
-    /// Start a new piece of work from the repository's default branch.
-    Start(StartArgs),
+    /// Begin a new piece of work from the repository's default branch.
+    Begin(BeginArgs),
 
-    /// Show the current repository state.
-    Status,
+    /// Show the health of the current workflow.
+    Quality,
 }
 
 #[derive(clap::Args, Debug)]
@@ -47,7 +47,7 @@ pub struct UndoArgs {
 }
 
 #[derive(clap::Args, Debug)]
-pub struct StartArgs {
+pub struct BeginArgs {
     /// Name of the new piece of work.
     pub name: String,
 }
